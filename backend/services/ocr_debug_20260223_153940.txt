@@ -1,0 +1,35 @@
+OCR + Translation debug log — 20260223_153940
+Source: fr → Target: en | Model: offline
+============================================================
+
+============================================================
+SLIDE 4
+============================================================
+   🔍 OCR extracting text (lang=fr)...
+   ✅ OCR extracted 1660 chars
+   💻 Falling back to offline translation (Helsinki-NLP)...
+   ✅ Offline translation OK: 1451 chars
+
+============================================================
+SLIDE 5
+============================================================
+   🔍 OCR extracting text (lang=fr)...
+   ✅ OCR extracted 1235 chars
+   💻 Falling back to offline translation (Helsinki-NLP)...
+   ✅ Offline translation OK: 1074 chars
+
+============================================================
+SLIDE 6
+============================================================
+   🔍 OCR extracting text (lang=fr)...
+   ✅ OCR extracted 1913 chars
+   💻 Falling back to offline translation (Helsinki-NLP)...
+   ✅ Offline translation OK: 1799 chars
+
+============================================================
+SLIDE 7
+============================================================
+   🔍 OCR extracting text (lang=fr)...
+   ✅ OCR extracted 1008 chars
+   💻 Falling back to offline translation (Helsinki-NLP)...
+   ✅ Offline translation OK: 900 chars

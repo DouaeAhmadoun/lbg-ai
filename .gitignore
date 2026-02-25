@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.env
+.env.local
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+backend/outputs/
+uploads/
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
