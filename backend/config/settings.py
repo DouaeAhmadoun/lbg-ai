@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     port: int = 8000
     
     # CORS
-    cors_origins: list = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: str = "http://localhost:3000"
     
     # Database
     database_url: str = f"sqlite+aiosqlite:///{BASE_DIR}/app.db"
