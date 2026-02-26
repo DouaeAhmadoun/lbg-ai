@@ -350,21 +350,46 @@ async def download_shipment(
 ):
     """Download generated shipment file(s)"""
     try:
+        print(f"🔍 Download request for job_id: {job_id}")
+        
         from sqlalchemy import select
         result = await db.execute(select(Job).where(Job.id == job_id))
         job = result.scalar_one_or_none()
         
         if not job:
+            print(f"❌ Job {job_id} not found in database")
             raise HTTPException(status_code=404, detail="Job not found")
         
+        print(f"✅ Job found: status={job.status}, output_path={job.output_path}")
+        print(f"📄 Output filename: {job.output_filename}")
+        
         if job.status != "completed":
+            print(f"❌ Job not completed, status: {job.status}")
             raise HTTPException(status_code=400, detail="Job not completed")
         
         from pathlib import Path
+        import os
+        
         file_path = Path(job.output_path)
+        print(f"🔍 Looking for file at: {file_path}")
+        print(f"📁 File exists? {file_path.exists()}")
+        print(f"📂 Settings output_dir: {settings.output_dir}")
+        
+        # List files in output directory
+        try:
+            if settings.output_dir.exists():
+                files_in_dir = list(settings.output_dir.iterdir())
+                print(f"📂 Files in {settings.output_dir}: {[f.name for f in files_in_dir]}")
+            else:
+                print(f"❌ Output directory doesn't exist: {settings.output_dir}")
+        except Exception as e:
+            print(f"⚠️ Error listing directory: {e}")
         
         if not file_path.exists():
-            raise HTTPException(status_code=404, detail="File not found")
+            print(f"❌ File not found at path: {file_path}")
+            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        print(f"✅ File found! Size: {file_path.stat().st_size} bytes")
         
         # Determine media type
         if file_path.suffix == ".zip":
@@ -372,13 +397,20 @@ async def download_shipment(
         else:
             media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         
+        print(f"📤 Returning file: {job.output_filename}, media_type: {media_type}")
+        
         return FileResponse(
             file_path,
             media_type=media_type,
             filename=job.output_filename
         )
     
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Unexpected error in download: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

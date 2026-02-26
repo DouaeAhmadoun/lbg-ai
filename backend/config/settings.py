@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     
     # File storage
     upload_dir: Path = BASE_DIR / "uploads"
-    output_dir: Path = "/data/outputs" # BASE_DIR / "outputs"
+    output_dir: Path = Path("/data/outputs") # BASE_DIR / "outputs"
     max_upload_size: int = 100 * 1024 * 1024  # 100MB
     
     # File retention (days)

@@ -296,7 +296,7 @@ async def process_translation_background(
             print(f"⏱️  Elapsed seconds from stats: {stats.get('elapsed_seconds', 'NOT FOUND')}")
             
             # Save output file
-            print(f"💾 Saving output file...")
+            print(f"💾 Saving output file in", output_path)
             output_path = save_job_file(output_bytes, f"translated_{job.input_filename}", "outputs")
             print(f"✅ File saved to: {output_path}")
 
@@ -442,19 +442,37 @@ async def download_translation(
         job = result.scalar_one_or_none()
         
         if not job:
+            print(f"❌ Job {job_id} not found in database")
             raise HTTPException(status_code=404, detail="Job not found")
         
+        print(f"✅ Job found: status={job.status}, output_path={job.output_path}")
+        print(f"📄 Output filename: {job.output_filename}")
+        
         if job.status != "completed":
+            print(f"❌ Job not completed, status: {job.status}")
             raise HTTPException(status_code=400, detail="Job not completed yet")
         
-        if not job.output_path:
-            raise HTTPException(status_code=404, detail="Output file not found")
-        
         from pathlib import Path
+        import os
+        
         file_path = Path(job.output_path)
+        print(f"🔍 Looking for file at: {file_path}")
+        print(f"📁 File exists? {file_path.exists()}")
+        print(f"📂 Settings output_dir: {settings.output_dir}")
+        
+        # List files in output directory
+        try:
+            if settings.output_dir.exists():
+                files_in_dir = list(settings.output_dir.iterdir())
+                print(f"📂 Files in {settings.output_dir}: {[f.name for f in files_in_dir]}")
+            else:
+                print(f"❌ Output directory doesn't exist: {settings.output_dir}")
+        except Exception as e:
+            print(f"⚠️ Error listing directory: {e}")
         
         if not file_path.exists():
-            raise HTTPException(status_code=404, detail="File not found on server")
+            print(f"❌ File not found at path: {file_path}")
+            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
         
         return FileResponse(
             file_path,
