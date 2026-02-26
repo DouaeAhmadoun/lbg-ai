@@ -10,7 +10,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/uploads:/app/uploads
-      - ./backend/outputs:/app/outputs
+      - ./backend/outputs:/data/outputs
       - ./backend/app.db:/app/app.db
     environment:
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}

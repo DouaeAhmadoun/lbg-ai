@@ -185,7 +185,7 @@ docker-compose exec backend python -c "from models.database import init_db; impo
 docker stats
 
 # Disk usage
-du -sh backend/uploads backend/outputs
+du -sh backend/uploads backend/outputs /data/outputs
 ```
 
 ## 9. Updating the Application

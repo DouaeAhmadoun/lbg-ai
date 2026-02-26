@@ -430,7 +430,7 @@ Consider migrating to:
 - Review backend logs for specific error
 
 **3. Files not downloading**
-- Check file exists in `backend/outputs`
+- Check file exists in `backend/outputs` or `/data/outputs`
 - Verify job status is "completed"
 - Check browser console for errors
 
