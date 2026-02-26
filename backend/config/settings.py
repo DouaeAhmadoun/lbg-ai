@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     port: int = 8000
     
     # CORS
-    cors_origins: str = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000")
     
     # Database URL from environment
     _database_url: str = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{BASE_DIR}/app.db")
