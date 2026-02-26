@@ -334,7 +334,7 @@ export default function PptTranslation() {
 
   const handleDownload = () => {
     if (!jobId) return
-    window.location.href = `/api/ppt/download/${jobId}`
+    window.location.href = `${API_URL}/api/ppt/download/${jobId}`
   }
 
   const handleCancel = async () => {

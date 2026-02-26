@@ -151,7 +151,7 @@ export default function ExcelShipment() {
       )
       
       // Download anyway (or show warning first)
-      window.location.href = `/api/excel/download/${jobId}`
+      window.location.href = `${API_URL}/api/excel/download/${jobId}`
     } catch (error) {
       console.error('Error generating files:', error)
       setError('Error generating files: ' + (error.response?.data?.detail || error.message))
