@@ -26,8 +26,16 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:3000"
     
-    # Database
-    database_url: str = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{BASE_DIR}/app.db")
+    # Database URL from environment
+    _database_url: str = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{BASE_DIR}/app.db")
+    
+    @property
+    def database_url(self) -> str:
+        """Convert postgresql:// to postgresql+asyncpg:// for async support"""
+        url = self._database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
     
     # File storage
     upload_dir: Path = Path(BASE_DIR / "uploads")
