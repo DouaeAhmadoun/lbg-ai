@@ -145,14 +145,6 @@ def save_job_file(file_content: bytes, filename: str, directory: str = "outputs"
     else:
         base_dir = settings.upload_dir
     
-    # Create unique filename with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    name_parts = filename.rsplit(".", 1)
-    if len(name_parts) == 2:
-        unique_filename = f"{name_parts[0]}_{timestamp}.{name_parts[1]}"
-    else:
-        unique_filename = f"{filename}_{timestamp}"
-    
     file_path = base_dir / unique_filename
     file_path.write_bytes(file_content)
     
