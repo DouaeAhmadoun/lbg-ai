@@ -2,5 +2,6 @@
 // This is used across all components that need to make API calls
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+console.log('🔗 API_URL configured:', API_URL)  // Pour debug
 
 export default API_URL
