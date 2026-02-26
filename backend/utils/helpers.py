@@ -145,7 +145,7 @@ def save_job_file(file_content: bytes, filename: str, directory: str = "outputs"
     else:
         base_dir = settings.upload_dir
     
-    file_path = base_dir / unique_filename
+    file_path = base_dir / filename
     file_path.write_bytes(file_content)
     
     return file_path
