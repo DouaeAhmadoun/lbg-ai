@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     
     # Database
-    database_url: str = f"sqlite+aiosqlite:///{BASE_DIR}/app.db"
+    database_url: str = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{BASE_DIR}/app.db")
     
     # File storage
     upload_dir: Path = Path(BASE_DIR / "uploads")
