@@ -21,6 +21,7 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     # Startup
     print("🚀 Starting PPT & Excel Automation Server...")
+    print(f"🔗 CORS Origins configured: {settings.CORS_ORIGINS}")
     await init_db()
     print("✅ Database initialized")
     
