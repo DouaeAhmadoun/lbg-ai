@@ -197,6 +197,7 @@ async def process_translation_background(
     
     from sqlalchemy import select
     
+    output_path = None
     async with AsyncSessionLocal() as db:
         try:
             # Get job
@@ -296,7 +297,7 @@ async def process_translation_background(
             print(f"⏱️  Elapsed seconds from stats: {stats.get('elapsed_seconds', 'NOT FOUND')}")
             
             # Save output file
-            print(f"💾 Saving output file in", output_path)
+            print(f"💾 Saving output file...")
             output_path = save_job_file(output_bytes, f"translated_{job.input_filename}", "outputs")
             print(f"✅ File saved to: {output_path}")
 
