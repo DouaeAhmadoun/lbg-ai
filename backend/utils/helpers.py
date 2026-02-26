@@ -145,8 +145,16 @@ def save_job_file(file_content: bytes, filename: str, directory: str = "outputs"
     else:
         base_dir = settings.upload_dir
     
+    # Ensure it's a Path object
+    if not isinstance(base_dir, Path):
+        base_dir = Path(base_dir)
+    
+    # Create directory if it doesn't exist
+    base_dir.mkdir(parents=True, exist_ok=True)
+    
     file_path = base_dir / filename
     file_path.write_bytes(file_content)
+    print(f"💾 Saved file: {file_path}")
     
     return file_path
 
