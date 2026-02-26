@@ -438,6 +438,8 @@ async def download_translation(
 ):
     """Download translated PPT file"""
     try:
+        print(f"🔍 PPT Download request for job_id: {job_id}")
+        
         from sqlalchemy import select
         result = await db.execute(select(Job).where(Job.id == job_id))
         job = result.scalar_one_or_none()
@@ -446,8 +448,9 @@ async def download_translation(
             print(f"❌ Job {job_id} not found in database")
             raise HTTPException(status_code=404, detail="Job not found")
         
-        print(f"✅ Job found: status={job.status}, output_path={job.output_path}")
-        print(f"📄 Output filename: {job.output_filename}")
+        print(f"✅ Job found: status={job.status}")
+        print(f"📄 output_path from DB: {job.output_path}")
+        print(f"📄 output_filename from DB: {job.output_filename}")
         
         if job.status != "completed":
             print(f"❌ Job not completed, status: {job.status}")
@@ -465,7 +468,9 @@ async def download_translation(
         try:
             if settings.output_dir.exists():
                 files_in_dir = list(settings.output_dir.iterdir())
-                print(f"📂 Files in {settings.output_dir}: {[f.name for f in files_in_dir]}")
+                print(f"📂 Files in {settings.output_dir}:")
+                for f in files_in_dir:
+                    print(f"   - {f.name}")
             else:
                 print(f"❌ Output directory doesn't exist: {settings.output_dir}")
         except Exception as e:
@@ -473,7 +478,20 @@ async def download_translation(
         
         if not file_path.exists():
             print(f"❌ File not found at path: {file_path}")
-            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+            
+            # Try to find it by filename only
+            potential_path = settings.output_dir / job.output_filename
+            print(f"🔍 Trying alternate path: {potential_path}")
+            print(f"📁 Alternate exists? {potential_path.exists()}")
+            
+            if potential_path.exists():
+                print(f"✅ Found at alternate location! Using that.")
+                file_path = potential_path
+            else:
+                raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        print(f"✅ File found! Size: {file_path.stat().st_size} bytes")
+        print(f"📤 Returning file: {job.output_filename}")
         
         return FileResponse(
             file_path,
@@ -481,9 +499,13 @@ async def download_translation(
             filename=job.output_filename
         )
     
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Error in PPT download: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/history")
 async def get_history(
