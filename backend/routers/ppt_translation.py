@@ -120,7 +120,7 @@ async def translate_ppt(
         # Get model
         if provider == "claude":
             model = settings.default_claude_model
-        elif provider == "openrouter":
+        elif provider in ["openrouter", "ocr_free"]:
             model = settings.default_openrouter_model
         else:
             model = "offline"

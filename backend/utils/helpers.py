@@ -89,9 +89,9 @@ async def get_api_key(provider: str, db: AsyncSession) -> Optional[str]:
     # Fallback to environment variables
     if provider == "claude":
         return settings.claude_api_key
-    elif provider == "openrouter":
+    elif provider in ["openrouter", "ocr_free"]:
         return settings.openrouter_api_key
-    
+
     return None
 
 
