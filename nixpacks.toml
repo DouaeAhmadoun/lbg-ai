@@ -1,5 +1,5 @@
 [phases.setup]
-aptPkgs = ["tesseract-ocr", "tesseract-ocr-fra", "tesseract-ocr-eng"]
+aptPkgs = ["tesseract-ocr", "tesseract-ocr-fra", "tesseract-ocr-eng", "tesseract-ocr-spa", "tesseract-ocr-ita"]
 nixPkgs = ["python311"]
 
 [phases.install]
