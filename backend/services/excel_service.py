@@ -343,6 +343,12 @@ class ShipmentProcessor:
             if cell.value is not None
         }
 
+        # Clear any pre-existing data rows from the template (keep header row 1)
+        if worksheet.max_row > 1:
+            for row_cells in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
+                for cell in row_cells:
+                    cell.value = None
+
         print(f"📝 Writing {len(filtered_data)} rows to {market} template")
 
         for seq_idx, (_, row) in enumerate(filtered_data.iterrows()):
