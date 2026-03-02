@@ -149,17 +149,23 @@ def _classify_row_to_market(row) -> Optional[str]:
     # 2. City-based fallback for IT
     for col in ('ciudad', 'city'):
         if col in row.index and pd.notna(row[col]):
-            city_norm = _normalize(str(row[col]))
+            city_val = str(row[col]).strip()
+            if not city_val or city_val in ('nan', 'None', 'NaN'):
+                continue  # empty → try next column
+            city_norm = _normalize(city_val)
             if city_norm in ITALIAN_CITIES:
                 return 'IT'
-            break
+            break  # non-empty city found, not Italian → stop
 
-    # 3. Postal code
+    # 3. Postal code — try both column names, skip empty values
     postal_code = None
     for col in ('codigo_postal', 'postal_code'):
         if col in row.index and pd.notna(row[col]):
             val = row[col]
-            postal_code = str(int(val)).zfill(5) if isinstance(val, (int, float)) else str(val).strip()
+            candidate = str(int(val)).zfill(5) if isinstance(val, (int, float)) else str(val).strip()
+            if not candidate or candidate in ('nan', 'None', 'NaN'):
+                continue  # empty → try next column
+            postal_code = candidate
             break
 
     if not postal_code or not re.match(r'^\d{5}$', postal_code):
@@ -294,15 +300,16 @@ class ShipmentProcessor:
 
                 value = ''
                 for source_col in source_cols:
-                    if source_col in row:
-                        potential_value = row[source_col]
-                        if potential_value is None or pd.isna(potential_value):
-                            continue
-                        str_value = str(potential_value).strip()
-                        if str_value in ('', 'None', 'nan', 'NaN'):
-                            continue
-                        value = str(potential_value).replace('.0', '') if isinstance(potential_value, (int, float)) else str_value
-                        break
+                    if source_col not in row:
+                        continue
+                    potential_value = row[source_col]
+                    if potential_value is None or pd.isna(potential_value):
+                        continue
+                    str_value = str(potential_value).strip()
+                    if str_value in ('', 'None', 'nan', 'NaN'):
+                        continue  # empty → try next fallback column
+                    value = str(potential_value).replace('.0', '') if isinstance(potential_value, (int, float)) else str_value
+                    break
 
                 worksheet.cell(row=excel_row, column=col_idx, value=value)
 
