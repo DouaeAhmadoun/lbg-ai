@@ -616,8 +616,10 @@ export default function PptTranslation() {
 
         {/* Success Summary - shown after translation completes */}
         {jobId && !processing && progressMessage && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-300 rounded-lg">
-            <p className="text-sm text-green-800 font-medium whitespace-pre-line">{progressMessage}</p>
+          <div className="mb-4 flex justify-center">
+            <div className="p-4 bg-green-50 border border-green-300 rounded-lg max-w-md w-full text-center">
+              <p className="text-sm text-green-800 font-medium whitespace-pre-line">{progressMessage}</p>
+            </div>
           </div>
         )}
 

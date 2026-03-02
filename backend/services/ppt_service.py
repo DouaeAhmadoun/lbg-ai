@@ -861,7 +861,7 @@ def ocr_extract_text(image: Image.Image, source_lang: str = "es") -> str:
 
 def detect_language_from_image(image: Image.Image) -> Optional[str]:
     """Detect language from an image using local OCR + langdetect."""
-    text = ocr_extract_text(image, source_lang="es")
+    text = ocr_extract_text(image, source_lang="en")
     if not text or len(text.strip()) < 20:
         return None
     try:
@@ -1135,11 +1135,12 @@ async def call_ocr_openrouter(
     target_lang: str,
     api_key: str,
     model: str = "mistralai/mistral-7b-instruct:free",
-    log_file: Optional[str] = None
+    log_file: Optional[str] = None,
+    allow_offline_fallback: bool = True
 ) -> Optional[Dict]:
     """
     Free pipeline: local pytesseract OCR → OpenRouter text LLM translation.
-    Falls back to ArgosTranslate (offline) if OpenRouter fails.
+    Falls back to offline translation only if allow_offline_fallback is True.
     Returns translation_method: "openrouter" | "offline" | None
     No formatting preserved — plain black text output.
     """
@@ -1267,7 +1268,7 @@ async def call_ocr_openrouter(
     else:
         openrouter_error = "No API key configured"
 
-    # Step 2b: Fallback to offline CTranslate2 + Helsinki-NLP
+    # Step 2b: Optional offline fallback
     if not translated_text:
         # If source == target, no translation needed — return raw text directly
         if source_lang == target_lang:
@@ -1275,7 +1276,7 @@ async def call_ocr_openrouter(
             translated_text = raw_text
             translation_method = "passthrough"
             translation_model = "passthrough"
-        else:
+        elif allow_offline_fallback:
             log(f"   💻 Falling back to offline translation (Helsinki-NLP)...")
             translated_text = await asyncio.get_event_loop().run_in_executor(
                 executor,
@@ -1288,6 +1289,10 @@ async def call_ocr_openrouter(
             else:
                 log(f"   ❌ Offline translation also failed")
                 return None
+        else:
+            err = openrouter_error or "OpenRouter failed"
+            log(f"   ❌ OpenRouter failed and offline fallback is disabled")
+            return {"error": f"OpenRouter failed: {err}", "openrouter_error": err}
 
     # Step 3: Build structure
     # Guard: if translation produced only empty lines, treat as failure
@@ -1559,6 +1564,7 @@ async def process_ppt_slide(
     base_font_size: int,
     title_adjustment: int,
     subject_adjustment: int,
+    allow_offline_fallback: bool = True,
     log_file: Optional[str] = None,
     slide_num: int = 0
 ) -> Optional[Dict]:
@@ -1581,12 +1587,31 @@ async def process_ppt_slide(
         prompt = create_vision_prompt(source_lang, target_lang)
         result = await call_openrouter_vision(image, prompt, api_key, model)
         if result is None:
-            print("⚠️ OpenRouter failed, falling back to OCR + offline translation...")
-            # Force offline translation by skipping OpenRouter in the OCR pipeline
-            result = await call_ocr_openrouter(image, source_lang, target_lang, api_key=None, model=model, log_file=log_file)
+            if allow_offline_fallback:
+                print("⚠️ OpenRouter failed, falling back to OCR + offline translation...")
+                # Force offline translation by skipping OpenRouter in the OCR pipeline
+                result = await call_ocr_openrouter(
+                    image,
+                    source_lang,
+                    target_lang,
+                    api_key=None,
+                    model=model,
+                    log_file=log_file,
+                    allow_offline_fallback=True
+                )
+            else:
+                result = {"error": "OpenRouter vision failed"}
     elif provider == "ocr_free":
         # Free pipeline: local OCR + OpenRouter text LLM (no vision needed)
-        result = await call_ocr_openrouter(image, source_lang, target_lang, api_key, model, log_file=log_file)
+        result = await call_ocr_openrouter(
+            image,
+            source_lang,
+            target_lang,
+            api_key,
+            model,
+            log_file=log_file,
+            allow_offline_fallback=allow_offline_fallback
+        )
     else:
         print(f"❌ Unknown provider: {provider}")
         return None
@@ -1655,6 +1680,7 @@ async def create_translated_ppt(
     title_adjustment = settings.get("title_size_adjustment", 5)
     subject_adjustment = settings.get("subject_size_adjustment", 1)
     claude_api_key = settings.get("claude_api_key")
+    allow_offline_fallback = settings.get("enable_offline_fallback", False)
     
     # Counter for selected slides processed (1, 2, 3...) instead of slide numbers (15, 16, 23...)
     selected_slide_counter = 0
@@ -1712,6 +1738,7 @@ async def create_translated_ppt(
                 slide, source_lang, target_lang,
                 provider, api_key, claude_api_key, model,
                 base_font_size, title_adjustment, subject_adjustment,
+                allow_offline_fallback,
                 log_file=log_path, slide_num=idx + 1
             )
             

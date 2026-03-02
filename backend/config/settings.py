@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     default_claude_model: str = "claude-sonnet-4-20250514"
     default_openrouter_model: str = "google/gemma-3-12b-it:free"
     default_ocr_model: str = "openrouter/free"  # Auto-selects best available free model
+    enable_offline_fallback: bool = False
     
     # Translation defaults
     default_source_lang: str = "es"

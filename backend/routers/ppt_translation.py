@@ -243,7 +243,8 @@ async def process_translation_background(
                 "base_font_size": base_font_size,
                 "title_size_adjustment": title_adjustment,
                 "subject_size_adjustment": subject_adjustment,
-                "progress_steps_per_slide": steps_per_slide
+                "progress_steps_per_slide": steps_per_slide,
+                "enable_offline_fallback": settings.enable_offline_fallback
             }
             if claude_api_key:
                 settings_dict["claude_api_key"] = claude_api_key
@@ -298,7 +299,10 @@ async def process_translation_background(
             
             # Save output file
             print(f"💾 Saving output file...")
-            output_path = save_job_file(output_bytes, f"translated_{job.input_filename}", "outputs")
+            ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            stem = job.input_filename.rsplit(".", 1)[0] if "." in job.input_filename else job.input_filename
+            output_filename = f"translated_{stem}_{ts}.pptx"
+            output_path = save_job_file(output_bytes, output_filename, "outputs")
             print(f"✅ File saved to: {output_path}")
 
             # Update job
@@ -307,7 +311,7 @@ async def process_translation_background(
             if job:
                 job.status = "completed"
                 job.output_path = str(output_path)
-                job.output_filename = f"translated_{job.input_filename}"
+                job.output_filename = output_filename
                 job.slides_processed = stats["processed_slides"]
                 job.total_slides = stats["total_slides"]
                 job.completed_at = datetime.utcnow()
