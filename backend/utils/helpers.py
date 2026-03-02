@@ -75,17 +75,19 @@ async def get_admin_session(
 
 async def get_api_key(provider: str, db: AsyncSession) -> Optional[str]:
     """Get API key for a provider from database"""
+    # ocr_free uses the openrouter key
+    db_provider = "openrouter" if provider == "ocr_free" else provider
     result = await db.execute(
         select(APIKey).where(
-            APIKey.provider == provider,
+            APIKey.provider == db_provider,
             APIKey.is_active == True
         )
     )
     api_key_obj = result.scalar_one_or_none()
-    
+
     if api_key_obj:
         return api_key_obj.api_key
-    
+
     # Fallback to environment variables
     if provider == "claude":
         return settings.claude_api_key
