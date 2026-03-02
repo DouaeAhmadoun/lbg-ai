@@ -10,6 +10,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import select
 from typing import List, Optional
 import json
+import copy as copy_module
 from datetime import datetime
 import asyncio
 
@@ -529,6 +530,118 @@ async def get_history(
     return {
         "jobs": [job.to_dict() for job in jobs]
     }
+
+
+@router.post("/merge")
+async def merge_translations(
+    job_id_1: int = Form(...),
+    job_id_2: int = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Merge two translation job outputs into a single ordered PPTX (original slide order)."""
+    try:
+        # Load both jobs
+        result1 = await db.execute(select(Job).where(Job.id == job_id_1))
+        job1 = result1.scalar_one_or_none()
+        result2 = await db.execute(select(Job).where(Job.id == job_id_2))
+        job2 = result2.scalar_one_or_none()
+
+        if not job1 or not job2:
+            raise HTTPException(status_code=404, detail="One or both jobs not found")
+        if job1.status != "completed" or job2.status != "completed":
+            raise HTTPException(status_code=400, detail="Both jobs must be completed before merging")
+
+        # Resolve output file paths
+        from pathlib import Path
+        def resolve_path(job):
+            p = Path(job.output_path)
+            if not p.exists():
+                p = settings.output_dir / job.output_filename
+            if not p.exists():
+                raise HTTPException(status_code=404, detail=f"Output file not found for job {job.id}")
+            return p
+
+        path1 = resolve_path(job1)
+        path2 = resolve_path(job2)
+
+        # Build (original_1based_idx → output_0based_position) maps from slide_methods
+        def successful_slide_map(slide_methods):
+            """Returns [(original_1based_idx, output_0based_pos), ...] sorted by original index."""
+            ok = [m for m in slide_methods if m.get("method") and m.get("method") != "unknown"]
+            ok.sort(key=lambda m: m["slide"])
+            return [(m["slide"], i) for i, m in enumerate(ok)]
+
+        methods1 = (job1.settings_used or {}).get("slide_methods", [])
+        methods2 = (job2.settings_used or {}).get("slide_methods", [])
+
+        slides1 = successful_slide_map(methods1)  # from job1 output
+        slides2 = successful_slide_map(methods2)  # from job2 output (retry)
+
+        # Combine: job2 wins on duplicate original indices (retry takes priority)
+        seen = {}
+        for orig_idx, out_pos in slides1:
+            seen[orig_idx] = (1, out_pos)
+        for orig_idx, out_pos in slides2:
+            seen[orig_idx] = (2, out_pos)  # retry overrides
+
+        combined = sorted(seen.items())  # [(orig_idx, (job_num, out_pos)), ...]
+        print(f"🔀 Merge: job1={len(slides1)} slides, job2={len(slides2)} slides → merged={len(combined)}")
+
+        prs1 = Presentation(str(path1))
+        prs2 = Presentation(str(path2))
+
+        merged = Presentation()
+        merged.slide_width = prs1.slide_width
+        merged.slide_height = prs1.slide_height
+
+        for orig_idx, (job_num, out_pos) in combined:
+            src_prs = prs1 if job_num == 1 else prs2
+            src_slide = src_prs.slides[out_pos]
+            dest_slide = merged.slides.add_slide(merged.slide_layouts[6])  # blank
+
+            for shape in src_slide.shapes:
+                if shape.shape_type == 13:  # MSO_SHAPE_TYPE.PICTURE
+                    dest_slide.shapes.add_picture(
+                        io.BytesIO(shape.image.blob),
+                        shape.left, shape.top, shape.width, shape.height
+                    )
+                else:
+                    dest_slide.shapes._spTree.append(copy_module.deepcopy(shape.element))
+
+            print(f"  ✅ Slide orig#{orig_idx} from job{job_num}[{out_pos}]")
+
+        # Save merged output
+        timestamp = datetime.now().strftime('%Y-%m-%d_%Hh%M')
+        filename = f"Merged_Translation_{timestamp}.pptx"
+        buf = io.BytesIO()
+        merged.save(buf)
+        buf.seek(0)
+
+        file_path = save_job_file(buf.getvalue(), filename, "outputs")
+
+        merge_job = Job(
+            job_type="ppt_merge",
+            status="completed",
+            input_filename=f"merge_of_job{job_id_1}_and_job{job_id_2}",
+            output_filename=filename,
+            output_path=str(file_path),
+            completed_at=datetime.now(),
+            settings_used={"merged_from": [job_id_1, job_id_2], "total_slides": len(combined)}
+        )
+        db.add(merge_job)
+        await db.commit()
+        await db.refresh(merge_job)
+
+        print(f"✅ Merge complete: {filename} ({len(combined)} slides), job_id={merge_job.id}")
+        return {"job_id": merge_job.id, "total_slides": len(combined), "filename": filename}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Merge error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def process_translation_background_sync(
