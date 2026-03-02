@@ -7,7 +7,9 @@ import pandas as pd
 import openpyxl
 from openpyxl import load_workbook
 import io
-from typing import Dict, List, Tuple
+import re
+import unicodedata
+from typing import Dict, List, Optional, Tuple
 import zipfile
 from datetime import datetime
 
@@ -85,6 +87,66 @@ POSTAL_CODE_RANGES = {
         'pattern': r'^\d{5}$'
     }
 }
+
+
+# French department codes (first 2-3 digits of postal code)
+FRENCH_DEPTS = set(range(1, 96)) | {971, 972, 973, 974, 976}
+
+# Spanish province names (lowercase, no accents) for IT/ES disambiguation
+SPANISH_PROVINCE_NAMES = {
+    'alava', 'araba', 'albacete', 'alicante', 'alacant', 'almeria', 'avila',
+    'badajoz', 'baleares', 'balears', 'illes balears', 'barcelona', 'burgos',
+    'caceres', 'cadiz', 'castellon', 'castelló', 'ciudad real', 'cordoba',
+    'coruña', 'coruna', 'a coruña', 'la coruña', 'cuenca', 'girona', 'gerona',
+    'granada', 'guadalajara', 'guipuzcoa', 'gipuzkoa', 'huelva', 'huesca',
+    'jaen', 'leon', 'lleida', 'lerida', 'la rioja', 'rioja', 'lugo', 'madrid',
+    'malaga', 'murcia', 'navarra', 'navarre', 'ourense', 'orense', 'palencia',
+    'las palmas', 'pontevedra', 'salamanca', 'santa cruz de tenerife', 'tenerife',
+    'cantabria', 'segovia', 'sevilla', 'seville', 'soria', 'tarragona', 'teruel',
+    'toledo', 'valencia', 'valladolid', 'vizcaya', 'bizkaia', 'zamora',
+    'zaragoza', 'asturias', 'ceuta', 'melilla',
+}
+
+
+def _normalize(text: str) -> str:
+    """Lowercase and strip accents from a string"""
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', text.lower().strip())
+        if unicodedata.category(c) != 'Mn'
+    )
+
+
+def _classify_row_to_market(row) -> Optional[str]:
+    """
+    Classify a data row to IT, FR, or ES.
+    Uses postal code as primary signal, province name to disambiguate IT vs ES
+    in the overlapping 00000-59999 range.
+    """
+    postal_code = None
+    for col in ('codigo_postal', 'postal_code'):
+        if col in row.index and pd.notna(row[col]):
+            val = row[col]
+            postal_code = str(int(val)).zfill(5) if isinstance(val, (int, float)) else str(val).strip()
+            break
+
+    if not postal_code or not re.match(r'^\d{5}$', postal_code):
+        return None
+
+    pc_int = int(postal_code)
+    dept = pc_int // 1000
+
+    if dept in FRENCH_DEPTS:
+        return 'FR'
+    if pc_int >= 60000:
+        return 'IT'
+
+    # Ambiguous 00000-59999: use province name to distinguish IT from ES
+    if 'provincia' in row.index and pd.notna(row['provincia']):
+        prov = _normalize(str(row['provincia']))
+        if prov in SPANISH_PROVINCE_NAMES:
+            return 'ES'
+
+    return 'IT'  # Default for ambiguous codes
 
 
 class ShipmentProcessor:
@@ -186,38 +248,16 @@ class ShipmentProcessor:
             raise ValueError(f"Error loading {market} template: {str(e)}")
     
     def auto_filter_by_market(self, market: str) -> pd.DataFrame:
-        """Automatically filter clients by market based on postal codes"""
+        """Filter clients for a specific market using mutual-exclusion classification"""
         if self.client_data is None:
-            print(f"⚠️  auto_filter: client_data is None")
             return pd.DataFrame()
-        
-        print(f"🔍 auto_filter for {market}: Starting with {len(self.client_data)} records")
-        filtered_data = self.client_data.copy()
-        
-        # If postal code column exists, apply filtering
-        if 'codigo_postal' in filtered_data.columns:
-            postal_config = POSTAL_CODE_RANGES.get(market, {})
-            print(f"📮 {market}: postal_config = {postal_config}")
-            
-            if postal_config:
-                import re
-                pattern = postal_config.get('pattern')
-                print(f"🔎 {market}: Using pattern {pattern}")
-                
-                if pattern:
-                    # Show sample postal codes before filtering
-                    sample_codes = filtered_data['codigo_postal'].head(3).tolist()
-                    print(f"📬 Sample postal codes: {sample_codes}")
-                    
-                    # Filter by regex pattern
-                    filtered_data = filtered_data[
-                        filtered_data['codigo_postal'].astype(str).str.match(pattern, na=False)
-                    ]
-                    print(f"✂️  {market}: After regex filter: {len(filtered_data)} records remain")
-        else:
-            print(f"⚠️  {market}: 'codigo_postal' column not found in data")
-        
-        return filtered_data
+
+        mask = self.client_data.apply(
+            lambda row: _classify_row_to_market(row) == market, axis=1
+        )
+        filtered = self.client_data[mask]
+        print(f"✂️  {market}: {len(filtered)} records after filtering (from {len(self.client_data)})")
+        return filtered
     
     def manual_filter_by_ids(self, user_ids: List[int]) -> pd.DataFrame:
         """Manually filter clients by user IDs"""
@@ -236,56 +276,45 @@ class ShipmentProcessor:
         """Generate shipment file for a market"""
         if market not in self.templates:
             raise ValueError(f"Template for {market} not loaded")
-        
-        # Load template
+
         workbook = load_workbook(io.BytesIO(self.templates[market]))
         sheet_name = TEMPLATE_SHEETS[market]
         worksheet = workbook[sheet_name]
-        
-        # Get mapping
         mapping = COLUMN_MAPPINGS[market]
-        
-        # Starting row (row 1 is headers)
-        start_row = 2
-        
+
+        # Build header → column index from row 1, stripping spaces for robust matching
+        header_to_col = {
+            str(cell.value).strip(): cell.column
+            for cell in worksheet[1]
+            if cell.value is not None
+        }
+
         print(f"📝 Writing {len(filtered_data)} rows to {market} template")
-        
-        # Write data
-        for idx, row in filtered_data.iterrows():
-            excel_row = start_row + idx
-            col_num = 1
-            
+
+        for seq_idx, (_, row) in enumerate(filtered_data.iterrows()):
+            excel_row = 2 + seq_idx  # row 1 is header
+
             for template_col, source_cols in mapping.items():
-                value = ''  # Default empty
-                
-                # Try each source column in order (fallback logic)
+                col_idx = header_to_col.get(template_col.strip())
+                if col_idx is None:
+                    continue
+
+                value = ''
                 for source_col in source_cols:
                     if source_col in row:
                         potential_value = row[source_col]
-                        
-                        # Skip if None, NaN, or text 'None'/'nan'
-                        if potential_value is None:
+                        if potential_value is None or pd.isna(potential_value):
                             continue
-                        if pd.isna(potential_value):
-                            continue
-                        
                         str_value = str(potential_value).strip()
-                        if str_value in ['', 'None', 'nan', 'NaN']:
+                        if str_value in ('', 'None', 'nan', 'NaN'):
                             continue
-                        
-                        # Found a valid value!
-                        if isinstance(potential_value, (int, float)):
-                            value = str(potential_value).replace('.0', '')
-                        else:
-                            value = str_value
-                        break  # Stop trying fallbacks
-                
-                worksheet.cell(row=excel_row, column=col_num, value=value)
-                col_num += 1
-        
+                        value = str(potential_value).replace('.0', '') if isinstance(potential_value, (int, float)) else str_value
+                        break
+
+                worksheet.cell(row=excel_row, column=col_idx, value=value)
+
         print(f"✅ {market}: Wrote {len(filtered_data)} rows successfully")
-        
-        # Save to bytes
+
         output = io.BytesIO()
         workbook.save(output)
         output.seek(0)
@@ -309,10 +338,14 @@ class ShipmentProcessor:
         
         for market in markets:
             try:
-                # Use ALL client data for each market (no filtering)
-                print(f"📋 {market}: Using all {len(self.client_data)} records")
-                
-                file_bytes = self.generate_shipment_file(market, self.client_data)
+                if filter_mode == "manual" and manual_filters and market in manual_filters:
+                    filtered_data = self.manual_filter_by_ids(manual_filters[market])
+                else:
+                    filtered_data = self.auto_filter_by_market(market)
+
+                print(f"📋 {market}: Generating with {len(filtered_data)} filtered records")
+
+                file_bytes = self.generate_shipment_file(market, filtered_data)
                 generated_files[market] = file_bytes
                 print(f"✅ {market}: File generated successfully")
             
@@ -347,67 +380,14 @@ def create_zip_file(files_dict: Dict[str, bytes], timestamp: str = None) -> byte
 
 def detect_markets(data: pd.DataFrame) -> Dict[str, int]:
     """
-    Automatically detect markets based on postal codes
+    Automatically detect markets based on postal codes and province names.
     Returns: {'IT': 15, 'FR': 8, 'ES': 12} - number of records per market
-    
-    Strategy: 
-    - FR has specific identifiable ranges (Paris, major cities)
-    - ES codes are 00000-52999 BUT many overlap with IT
-    - Default to IT for ambiguous cases (most common in our data)
     """
-    import re
-    
     market_counts = {'IT': 0, 'FR': 0, 'ES': 0}
-    
-    # French department codes (definitive)
-    french_depts = set(range(1, 96))  # 01-95 (excluding Corsica 2A/2B)
-    french_depts.add(971)  # Guadeloupe
-    french_depts.add(972)  # Martinique
-    french_depts.add(973)  # Guyane
-    french_depts.add(974)  # Réunion
-    french_depts.add(976)  # Mayotte
-    
     for _, row in data.iterrows():
-        # Get postal code
-        postal_code = None
-        if 'codigo_postal' in row and pd.notna(row['codigo_postal']):
-            val = row['codigo_postal']
-            # Handle both int and float
-            if isinstance(val, (int, float)):
-                postal_code = str(int(round(val))).zfill(5)  # Round then convert: 75001.0 → 75001
-            else:
-                postal_code = str(val).strip()
-        elif 'postal_code' in row and pd.notna(row['postal_code']):
-            val = row['postal_code']
-            # Handle both int and float
-            if isinstance(val, (int, float)):
-                postal_code = str(int(round(val))).zfill(5)  # Round then convert
-            else:
-                postal_code = str(val).strip()
-        
-        if not postal_code or postal_code in ['', 'None', 'nan']:
-            continue
-        
-        # Must be exactly 5 digits
-        if not re.match(r'^\d{5}$', postal_code):
-            continue
-        
-        pc_int = int(postal_code)
-        
-        # Extract first 2 digits (department/province)
-        dept = pc_int // 1000  # 75001 → 75, 20121 → 20
-        
-        # Check if it's a French department
-        if dept in french_depts:
-            market_counts['FR'] += 1
-        # Check if it's definitely Italian (high codes that Spain doesn't use)
-        elif pc_int >= 60000:
-            market_counts['IT'] += 1
-        # For low codes (00000-59999), default to IT
-        # (Spanish codes exist here but are less common in our data)
-        else:
-            market_counts['IT'] += 1
-    
+        market = _classify_row_to_market(row)
+        if market:
+            market_counts[market] += 1
     return market_counts
 
 

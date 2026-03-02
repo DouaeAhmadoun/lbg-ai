@@ -625,7 +625,7 @@ export default function PptTranslation() {
             : 'bg-red-50 border-red-300 text-red-800'
           return (
             <div className="mb-4 flex justify-center">
-              <div className={`p-4 border rounded-lg w-2/3 text-center ${style}`}>
+              <div className={`p-4 border rounded-lg w-full max-w-2xl text-center ${style}`}>
                 <p className="text-sm font-medium whitespace-pre-line">{progressMessage}</p>
               </div>
             </div>
