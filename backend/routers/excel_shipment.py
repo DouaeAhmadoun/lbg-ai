@@ -4,14 +4,12 @@ Handles Excel file generation for shipments
 """
 
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
-from fastapi.responses import Response, FileResponse
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
-import json
 from datetime import datetime
 
 from models.database import Job, get_db
-from services.excel_service import ShipmentProcessor, create_zip_file, get_market_preview, _DEFAULT_TEMPLATES_DIR
+from services.excel_service import ShipmentProcessor, get_market_preview, _DEFAULT_TEMPLATES_DIR
 from utils.helpers import save_job_file
 from config.settings import settings
 
@@ -24,59 +22,42 @@ processors = {}
 @router.post("/upload-client-data")
 async def upload_client_data(
     file: UploadFile = File(...),
-    session_id: str = Form(...)
+    session_id: str = Form(...),
+    market: str = Form(...)
 ):
-    """Upload client data from Metabase"""
+    """Upload client data for a specific market"""
     try:
-        print(f"📥 Received file: {file.filename}, session: {session_id}")
+        if market not in ['IT', 'FR', 'ES']:
+            raise HTTPException(status_code=400, detail=f"Invalid market: {market}")
+
+        print(f"📥 Received file: {file.filename}, session: {session_id}, market: {market}")
         file_content = await file.read()
-        print(f"📄 File size: {len(file_content)} bytes")
-        
-        processor = ShipmentProcessor()  # Auto-loads templates from templates/
-        print(f"✅ ShipmentProcessor created, templates loaded: {processor.get_available_markets()}")
-        
+
+        processor = ShipmentProcessor()
+        print(f"✅ Templates loaded: {processor.get_available_markets()}")
+
+        if market not in processor.get_available_markets():
+            raise HTTPException(status_code=400, detail=f"No template found for {market}")
+
         df = processor.load_client_data(file_content)
-        print(f"✅ Client data loaded: {len(df)} records")
-        
-        # Store processor in memory
+        print(f"✅ Client data loaded: {len(df)} records, columns: {list(df.columns)}")
+
         processors[session_id] = processor
-        print(f"✅ Processor stored in session: {session_id}")
-        
-        # Get available markets (templates that are loaded)
-        available_markets = processor.get_available_markets()
-        print(f"🌍 Available markets: {available_markets}")
-        
-        # Auto-detect markets based on postal codes
-        from services.excel_service import detect_markets, validate_shipment_data
-        detected_markets = detect_markets(df)
-        
-        # Suggest markets that have both template AND data
-        suggested_markets = [m for m in available_markets if detected_markets.get(m, 0) > 0]
-        
-        print(f"🔍 Detected markets: {detected_markets}")
-        print(f"💡 Suggested markets: {suggested_markets}")
-        
-        # Run validation for suggested markets
-        validation_reports = {}
-        for market in suggested_markets:
-            validation_report = validate_shipment_data(df, market)
-            validation_reports[market] = validation_report
-            print(f"📋 {market} validation: {validation_report['valid_rows']}/{validation_report['total_rows']} valid")
-        
-        response = {
+
+        from services.excel_service import validate_shipment_data
+        validation_report = validate_shipment_data(df, market)
+        print(f"📋 Validation: {validation_report['valid_rows']}/{validation_report['total_rows']} valid")
+
+        return {
             "success": True,
             "total_records": len(df),
             "columns": list(df.columns),
-            "preview": df.head(5).to_dict('records'),
-            "available_markets": available_markets,
-            "detected_markets": detected_markets,  # {'IT': 15, 'FR': 8, 'ES': 0}
-            "suggested_markets": suggested_markets,  # ['IT', 'FR'] - markets with data
-            "validation_reports": validation_reports  # Validation dès l'upload!
+            "available_markets": processor.get_available_markets(),
+            "validation_report": validation_report
         }
-        
-        print(f"✅ Returning response with {len(available_markets)} markets")
-        return response
-    
+
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Error in upload-client-data: {e}")
         import traceback
@@ -216,125 +197,60 @@ async def preview_market(
 @router.post("/generate")
 async def generate_shipment_files(
     session_id: str = Form(...),
-    markets: str = Form(...),  # JSON string
-    filter_mode: str = Form("auto"),
-    manual_filters: str = Form("{}"),  # JSON string
+    market: str = Form(...),
     db: AsyncSession = Depends(get_db)
 ):
-    """Generate shipment files for selected markets"""
+    """Generate shipment file for the selected market using all client data"""
     try:
-        print(f"🎯 Generate called - session: {session_id}, markets: {markets}")
-        
+        print(f"🎯 Generate called - session: {session_id}, market: {market}")
+
         if session_id not in processors:
-            print(f"❌ Session {session_id} not found in processors")
             raise HTTPException(status_code=400, detail="Session not found")
-        
+
+        if market not in ['IT', 'FR', 'ES']:
+            raise HTTPException(status_code=400, detail=f"Invalid market: {market}")
+
         processor = processors[session_id]
-        markets_list = json.loads(markets)
-        manual_filters_dict = json.loads(manual_filters) if manual_filters != "{}" else None
-        
-        print(f"📋 Markets list: {markets_list}, filter_mode: {filter_mode}")
         print(f"🗂️  Processor has templates for: {processor.get_available_markets()}")
-        
-        # Create job record
+        print(f"📊 Client data records: {len(processor.client_data) if processor.client_data is not None else 0}")
+
         job = Job(
             job_type="excel_shipment",
             status="processing",
             input_filename="client_data.xlsx",
-            settings_used={
-                "markets": markets_list,
-                "filter_mode": filter_mode
-            }
+            settings_used={"market": market}
         )
-        
         db.add(job)
         await db.commit()
         await db.refresh(job)
-        
-        print(f"✅ Job {job.id} created, generating files...")
-        
-        # Validate data before generating
-        from services.excel_service import validate_shipment_data
-        validation_reports = {}
-        
-        for market in markets_list:
-            validation_report = validate_shipment_data(processor.client_data, market)
-            validation_reports[market] = validation_report
-            print(f"📋 {market} validation: {validation_report['valid_rows']}/{validation_report['total_rows']} valid, "
-                  f"{len(validation_report['blocking_errors'])} errors, "
-                  f"{len(validation_report['warnings'])} warnings")
-        
-        # Generate files
-        generated_files = processor.generate_all_files(
-            markets_list,
-            filter_mode,
-            manual_filters_dict
-        )
-        
-        print(f"📦 Generated files: {list(generated_files.keys()) if generated_files else 'NONE'}")
-        
-        if not generated_files:
-            print(f"❌ No files generated!")
-            job.status = "failed"
-            job.error_message = "No files generated"
-            await db.commit()
-            raise HTTPException(status_code=400, detail="No files generated")
-        
-        # Save files and update job
+
+        file_bytes = processor.generate_shipment_file(market)
+
         from services.excel_service import MARKET_NAMES
-        
-        saved_files = {}
-        # Format: 2026-02-25_14h30 (lisible et court)
         timestamp = datetime.now().strftime('%Y-%m-%d_%Hh%M')
-        
-        for market, file_bytes in generated_files.items():
-            market_name = MARKET_NAMES.get(market, market)  # Italy, France, Spain
-            filename = f"Shipment_{market_name}_{timestamp}.xlsx"
-            file_path = save_job_file(file_bytes, filename, "outputs")
-            saved_files[market] = str(file_path)
-        
-        # Create ZIP if multiple files
-        if len(generated_files) > 1:
-            # Create descriptive ZIP name with all markets
-            market_names = [MARKET_NAMES.get(m, m) for m in sorted(generated_files.keys())]
-            zip_filename = f"Shipments_{'_'.join(market_names)}_{timestamp}.zip"
-            zip_bytes = create_zip_file(generated_files, timestamp)  # Pass timestamp to create_zip_file
-            zip_path = save_job_file(zip_bytes, zip_filename, "outputs")
-            saved_files["zip"] = str(zip_path)
-        
-        # Update job
+        market_name = MARKET_NAMES.get(market, market)
+        filename = f"Shipment_{market_name}_{timestamp}.xlsx"
+        file_path = save_job_file(file_bytes, filename, "outputs")
+
         job.status = "completed"
-        job.completed_at = datetime.utcnow()
-        job.output_path = saved_files.get("zip", list(saved_files.values())[0])
-        
-        # Set proper filename for download
-        if "zip" in saved_files:
-            # Multiple markets → ZIP
-            market_names = [MARKET_NAMES.get(m, m) for m in sorted(generated_files.keys())]
-            job.output_filename = f"Shipments_{'_'.join(market_names)}_{timestamp}.zip"
-        else:
-            # Single market → Excel file
-            market = list(generated_files.keys())[0]
-            market_name = MARKET_NAMES.get(market, market)
-            job.output_filename = f"Shipment_{market_name}_{timestamp}.xlsx"
-        
+        job.completed_at = datetime.now()
+        job.output_path = str(file_path)
+        job.output_filename = filename
         await db.commit()
-        
-        return {
-            "job_id": job.id,
-            "status": "completed",
-            "files": saved_files,
-            "markets": list(generated_files.keys()),
-            "validation_reports": validation_reports  # Include validation reports
-        }
-    
+
+        print(f"✅ Job {job.id} completed: {filename}")
+        return {"job_id": job.id, "status": "completed"}
+
+    except HTTPException:
+        raise
     except Exception as e:
-        # Update job with error
         if 'job' in locals():
             job.status = "failed"
             job.error_message = str(e)
             await db.commit()
-        
+        print(f"❌ Generate error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
