@@ -108,6 +108,24 @@ ITALIAN_PROVINCE_CODES = {
     'UD', 'VA', 'VE', 'VB', 'VC', 'VR', 'VV', 'VI', 'VT',
 }
 
+# Major Italian cities (lowercase, no accents) — fallback when provincia is missing
+ITALIAN_CITIES = {
+    'roma', 'milano', 'napoli', 'torino', 'palermo', 'genova', 'bologna',
+    'firenze', 'bari', 'catania', 'venezia', 'verona', 'messina', 'padova',
+    'trieste', 'taranto', 'brescia', 'prato', 'reggio calabria', 'modena',
+    'parma', 'livorno', 'cagliari', 'reggio emilia', 'perugia', 'ravenna',
+    'ancona', 'ferrara', 'salerno', 'bergamo', 'trento', 'novara', 'vicenza',
+    'lecce', 'pesaro', 'arezzo', 'pescara', 'udine', 'foggia', 'siracusa',
+    'sassari', 'monza', 'rimini', 'cosenza', 'piacenza', 'catanzaro',
+    'la spezia', 'bolzano', 'terni', 'forlì', 'forli', 'potenza', 'matera',
+    'asti', 'alessandria', 'mantova', 'cremona', 'como', 'varese', 'lodi',
+    'lecco', 'sondrio', 'brindisi', 'barletta', 'andria', 'benevento',
+    'avellino', 'caserta', 'frosinone', 'latina', 'rieti', 'viterbo',
+    'grosseto', 'siena', 'pistoia', 'lucca', 'pisa', 'massa', 'carrara',
+    'ascoli piceno', 'macerata', 'fermo', 'teramo', 'chieti', 'campobasso',
+    'isernia', 'agrigento', 'trapani', 'ragusa', 'nuoro', 'oristano',
+}
+
 # Spanish province names (lowercase, no accents) for IT/ES disambiguation
 SPANISH_PROVINCE_NAMES = {
     'alava', 'araba', 'albacete', 'alicante', 'alacant', 'almeria', 'avila',
@@ -152,7 +170,15 @@ def _classify_row_to_market(row) -> Optional[str]:
             if _normalize(prov_raw) in SPANISH_PROVINCE_NAMES:
                 return 'ES'
 
-    # 2. Postal code fallback
+    # 2. City-based fallback for IT (helps records with missing provincia)
+    for col in ('ciudad', 'city'):
+        if col in row.index and pd.notna(row[col]):
+            city_norm = _normalize(str(row[col]))
+            if city_norm in ITALIAN_CITIES:
+                return 'IT'
+            break
+
+    # 3. Postal code fallback
     postal_code = None
     for col in ('codigo_postal', 'postal_code'):
         if col in row.index and pd.notna(row[col]):

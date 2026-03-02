@@ -279,170 +279,103 @@ export default function ExcelShipment() {
         )}
       </div>
       
-      {/* Validation Report - Improved design */}
-      {validationReport && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center">
-            <span className="mr-2">📋</span>
-            Data Validation Report
-          </h2>
-          
-          {/* Fixed height container with scroll */}
-          <div className="max-h-36 overflow-y-auto border border-gray-200 rounded">
-            {Object.entries(validationReport).map(([market, report]) => {
-              const hasBlockingErrors = report.blocking_errors && report.blocking_errors.length > 0
-              const hasWarnings = report.warnings && report.warnings.length > 0
-              const hasValidations = report.validations && report.validations.length > 0
-              const marketName = market === 'IT' ? 'Italy' : market === 'FR' ? 'France' : market === 'ES' ? 'Spain' : market
-              const validPercentage = ((report.valid_rows / report.total_rows) * 100).toFixed(1)
-              
-              return (
-                <div key={market} className="border-b last:border-b-0">
-                  {/* Market Header */}
-                  <div className={`p-4 ${hasBlockingErrors ? 'bg-red-100' : hasWarnings ? 'bg-orange-100' : 'bg-green-100'}`}>
-                    <div className="flex items-center justify-between mb-2">
+      {/* Validation Report */}
+      {validationReport && (() => {
+        // Group a list of {issue, user_id} items by issue type
+        const groupByIssue = (items) => {
+          const groups = {}
+          items.forEach(({ issue, user_id }) => {
+            if (!groups[issue]) groups[issue] = []
+            groups[issue].push(user_id)
+          })
+          return Object.entries(groups).map(([issue, userIds]) => ({ issue, userIds }))
+        }
+
+        const renderGroup = (groups, colorClass) =>
+          groups.map(({ issue, userIds }, idx) => (
+            <div key={idx} className={`text-xs ${colorClass}`}>
+              <span className="font-medium">{issue}</span>
+              {userIds.length === 1
+                ? <span className="text-gray-500 ml-1">— User {userIds[0]}</span>
+                : <span className="text-gray-500 ml-1">
+                    — {userIds.length} users ({userIds.slice(0, 6).join(', ')}{userIds.length > 6 ? `, +${userIds.length - 6} more` : ''})
+                  </span>
+              }
+            </div>
+          ))
+
+        return (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center">
+              <span className="mr-2">📋</span>
+              Data Validation Report
+            </h2>
+
+            <div className="border border-gray-200 rounded overflow-hidden">
+              {Object.entries(validationReport).map(([market, report]) => {
+                const hasBlockingErrors = report.blocking_errors?.length > 0
+                const hasWarnings = report.warnings?.length > 0
+                const hasValidations = report.validations?.length > 0
+                const hasAnyIssue = hasBlockingErrors || hasWarnings || hasValidations
+                const marketName = { IT: 'Italy', FR: 'France', ES: 'Spain' }[market] ?? market
+                const validPercentage = report.total_rows > 0
+                  ? ((report.valid_rows / report.total_rows) * 100).toFixed(1)
+                  : '100.0'
+
+                return (
+                  <div key={market} className="border-b last:border-b-0">
+                    {/* Market header */}
+                    <div className={`px-4 py-3 flex items-center justify-between ${hasBlockingErrors ? 'bg-red-50' : hasWarnings ? 'bg-orange-50' : 'bg-green-50'}`}>
                       <div className="flex items-center space-x-3">
-                        <h3 className="font-semibold text-lg">{marketName}</h3>
-                        
-                        {/* Quick summary badges - on same line */}
+                        <span className="font-semibold">{marketName}</span>
                         <div className="flex space-x-2">
-                          {hasBlockingErrors && (
-                            <span className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded font-medium">
-                              ❌ {report.blocking_errors.length} blocking
-                            </span>
-                          )}
-                          {hasWarnings && (
-                            <span className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded font-medium">
-                              ⚠️ {report.warnings.length} warnings
-                            </span>
-                          )}
-                          {hasValidations && (
-                            <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded font-medium">
-                              🔎 {report.validations.length} suspicious
-                            </span>
-                          )}
-                          {!hasBlockingErrors && !hasWarnings && !hasValidations && (
-                            <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded font-medium">
-                              ✅ All valid
-                            </span>
-                          )}
+                          {hasBlockingErrors && <span className="text-xs bg-red-200 text-red-800 px-2 py-0.5 rounded font-medium">❌ {report.blocking_errors.length} blocking</span>}
+                          {hasWarnings && <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded font-medium">⚠️ {report.warnings.length} warnings</span>}
+                          {hasValidations && <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded font-medium">🔎 {report.validations.length} suspicious</span>}
+                          {!hasAnyIssue && <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded font-medium">✅ All valid</span>}
                         </div>
                       </div>
-                      
-                      <div className="flex items-center space-x-4">
-                        <span className="text-sm">
-                          <strong>{report.valid_rows}</strong>/{report.total_rows} valid
-                        </span>
-                        <span className={`text-sm font-semibold ${validPercentage >= 90 ? 'text-green-600' : validPercentage >= 70 ? 'text-orange-600' : 'text-red-600'}`}>
-                          {validPercentage}%
-                        </span>
-                      </div>
+                      <span className={`text-sm font-semibold ${validPercentage >= 90 ? 'text-green-600' : validPercentage >= 70 ? 'text-orange-600' : 'text-red-600'}`}>
+                        {report.valid_rows}/{report.total_rows} valid ({validPercentage}%)
+                      </span>
                     </div>
-                  </div>
-                  
-                  {/* Issues Details - 2 columns layout */}
-                  <div className="p-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      
-                      {/* LEFT COLUMN: Blocking Errors */}
-                      <div>
+
+                    {/* Issue details — only rendered if there are issues */}
+                    {hasAnyIssue && (
+                      <div className="p-4 space-y-3">
                         {hasBlockingErrors && (
                           <div className="bg-red-50 border-l-4 border-red-500 p-3">
-                            <div className="flex items-start">
-                              <span className="text-red-600 font-bold mr-2">❌</span>
-                              <div className="flex-1">
-                                <p className="font-semibold text-red-900 text-sm mb-1">
-                                  Blocking Errors ({report.blocking_errors.length})
-                                </p>
-                                <div className="text-xs space-y-1 max-h-64 overflow-y-auto">
-                                  {report.blocking_errors.map((err, idx) => (
-                                    <div key={idx} className="text-red-800">
-                                      <span className="font-mono bg-red-100 px-1">Row {err.row}</span>
-                                      <span className="text-gray-600 mx-1">•</span>
-                                      <span className="font-medium">User {err.user_id}</span>
-                                      <span className="text-gray-600 mx-1">→</span>
-                                      {err.issue}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
+                            <p className="font-semibold text-red-900 text-sm mb-2">❌ Blocking Errors</p>
+                            <div className="space-y-1">
+                              {renderGroup(groupByIssue(report.blocking_errors), 'text-red-800')}
                             </div>
                           </div>
                         )}
-                        {!hasBlockingErrors && (
-                          <div className="bg-green-50 border-l-4 border-green-500 p-3 text-center">
-                            <p className="text-green-700 font-semibold text-sm">✅ No blocking errors</p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* RIGHT COLUMN: Warnings */}
-                      <div>
                         {hasWarnings && (
                           <div className="bg-orange-50 border-l-4 border-orange-500 p-3">
-                            <div className="flex items-start">
-                              <span className="text-orange-600 font-bold mr-2">⚠️</span>
-                              <div className="flex-1">
-                                <p className="font-semibold text-orange-900 text-sm mb-1">
-                                  Warnings ({report.warnings.length})
-                                </p>
-                                <div className="text-xs space-y-1 max-h-64 overflow-y-auto">
-                                  {report.warnings.map((warn, idx) => (
-                                    <div key={idx} className="text-orange-800">
-                                      <span className="font-mono bg-orange-100 px-1">Row {warn.row}</span>
-                                      <span className="text-gray-600 mx-1">•</span>
-                                      <span className="font-medium">User {warn.user_id}</span>
-                                      <span className="text-gray-600 mx-1">→</span>
-                                      {warn.issue}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
+                            <p className="font-semibold text-orange-900 text-sm mb-2">⚠️ Warnings</p>
+                            <div className="space-y-1">
+                              {renderGroup(groupByIssue(report.warnings), 'text-orange-800')}
                             </div>
                           </div>
                         )}
-                        {!hasWarnings && (
-                          <div className="bg-green-50 border-l-4 border-green-500 p-3 text-center">
-                            <p className="text-green-700 font-semibold text-sm">✅ No warnings</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Validations - Full width below */}
-                    {hasValidations && (
-                      <div className="bg-yellow-50 border-l-4 border-yellow-500 p-3 mt-4">
-                        <div className="flex items-start">
-                          <span className="text-yellow-600 font-bold mr-2">🔎</span>
-                          <div className="flex-1">
-                            <p className="font-semibold text-yellow-900 text-sm mb-1">
-                              Suspicious Data ({report.validations.length})
-                            </p>
-                            <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
-                              {report.validations.slice(0, 5).map((val, idx) => (
-                                <div key={idx} className="text-yellow-800">
-                                  <span className="font-mono bg-yellow-100 px-1">Row {val.row}</span>
-                                  <span className="text-gray-600 mx-1">•</span>
-                                  <span className="font-medium">User {val.user_id}</span>
-                                  <span className="text-gray-600 mx-1">→</span>
-                                  {val.issue}
-                                </div>
-                              ))}
-                              {report.validations.length > 5 && (
-                                <p className="text-yellow-600 italic">+ {report.validations.length - 5} more</p>
-                              )}
+                        {hasValidations && (
+                          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-3">
+                            <p className="font-semibold text-yellow-900 text-sm mb-2">🔎 Suspicious Data</p>
+                            <div className="space-y-1">
+                              {renderGroup(groupByIssue(report.validations), 'text-yellow-800')}
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     )}
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Generate Button */}
       <div className="flex justify-center mb-6">
