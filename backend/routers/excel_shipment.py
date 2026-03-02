@@ -11,7 +11,7 @@ import json
 from datetime import datetime
 
 from models.database import Job, get_db
-from services.excel_service import ShipmentProcessor, create_zip_file, get_market_preview
+from services.excel_service import ShipmentProcessor, create_zip_file, get_market_preview, _DEFAULT_TEMPLATES_DIR
 from utils.helpers import save_job_file
 from config.settings import settings
 
@@ -104,10 +104,7 @@ async def upload_template(
             processor.load_template(file_content, market)
         
         # Save to templates directory with timestamp naming
-        from pathlib import Path
-        from datetime import datetime
-        
-        templates_dir = Path("templates")
+        templates_dir = _DEFAULT_TEMPLATES_DIR
         templates_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate filename with timestamp: Shipment_XX_YYYYMMDD_HHMMSS.xlsx
@@ -136,9 +133,7 @@ async def upload_template(
 async def list_templates():
     """List all available templates by market with their timestamps"""
     try:
-        from pathlib import Path
-        
-        templates_dir = Path("templates")
+        templates_dir = _DEFAULT_TEMPLATES_DIR
         if not templates_dir.exists():
             return {
                 "success": True,

@@ -12,6 +12,10 @@ import unicodedata
 from typing import Dict, List, Optional, Tuple
 import zipfile
 from datetime import datetime
+from pathlib import Path
+
+# Absolute path to templates directory (robust regardless of working directory)
+_DEFAULT_TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
 # Column mapping configuration
 # Maps template columns → client data columns (with fallback)
@@ -206,17 +210,13 @@ class ShipmentProcessor:
     def __init__(self, templates_dir: str = None):
         self.client_data = None
         self.templates = {}
-        self.templates_dir = templates_dir or "templates"
-        
+        self.templates_dir = templates_dir or str(_DEFAULT_TEMPLATES_DIR)
+
         # Auto-load latest templates if directory exists
         self._load_latest_templates()
     
     def _load_latest_templates(self):
         """Load the latest template for each market from templates directory"""
-        import os
-        from pathlib import Path
-        import re
-        
         templates_path = Path(self.templates_dir)
         if not templates_path.exists():
             print(f"⚠️  Templates directory not found: {self.templates_dir}")
