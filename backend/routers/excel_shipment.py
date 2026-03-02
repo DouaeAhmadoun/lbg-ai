@@ -3,6 +3,7 @@ Excel Shipment API Router
 Handles Excel file generation for shipments
 """
 
+import pandas as pd
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,16 +39,24 @@ async def upload_client_data(
 
         processors[session_id] = processor
 
-        from services.excel_service import detect_dominant_market, validate_shipment_data
-        suggested_market = detect_dominant_market(df)
-        print(f"💡 Suggested market: {suggested_market}")
+        from services.excel_service import detect_dominant_market, validate_shipment_data, get_column_mapping_info
+        suggested_market, market_counts = detect_dominant_market(df)
+        print(f"💡 Suggested market: {suggested_market}, counts: {market_counts}")
 
-        # Pre-compute validation for all available markets so the frontend
-        # can switch between them without extra round-trips
+        # Pre-compute validation + column mapping for all available markets
         validation_reports = {}
+        column_mapping = {}
         for market in available_markets:
             validation_reports[market] = validate_shipment_data(df, market)
+            column_mapping[market] = get_column_mapping_info(df, market)
             print(f"📋 {market} validation: {validation_reports[market]['valid_rows']}/{validation_reports[market]['total_rows']} valid")
+
+        # Data preview: first 5 rows as list of dicts (NaN → None for JSON)
+        preview_df = df.head(5).where(pd.notna(df.head(5)), None)
+        data_preview = {
+            "columns": list(df.columns),
+            "rows": preview_df.to_dict(orient="records")
+        }
 
         return {
             "success": True,
@@ -55,7 +64,10 @@ async def upload_client_data(
             "columns": list(df.columns),
             "available_markets": available_markets,
             "suggested_market": suggested_market,
-            "validation_reports": validation_reports
+            "market_counts": market_counts,
+            "validation_reports": validation_reports,
+            "column_mapping": column_mapping,
+            "data_preview": data_preview
         }
 
     except HTTPException:

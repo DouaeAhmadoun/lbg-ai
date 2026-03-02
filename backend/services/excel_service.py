@@ -337,10 +337,10 @@ def create_zip_file(files_dict: Dict[str, bytes], timestamp: str = None) -> byte
     return zip_buffer.getvalue()
 
 
-def detect_dominant_market(data: pd.DataFrame) -> Optional[str]:
+def detect_dominant_market(data: pd.DataFrame) -> Tuple[Optional[str], Dict[str, int]]:
     """
-    Returns the market with the most classified rows, or None if nothing detected.
-    Used to auto-suggest the market after file upload.
+    Returns (dominant_market, counts_per_market).
+    dominant_market is None if no rows could be classified.
     """
     counts: Dict[str, int] = {'IT': 0, 'FR': 0, 'ES': 0}
     for _, row in data.iterrows():
@@ -348,8 +348,33 @@ def detect_dominant_market(data: pd.DataFrame) -> Optional[str]:
         if m:
             counts[m] += 1
     if not any(counts.values()):
-        return None
-    return max(counts, key=lambda k: counts[k])
+        return None, counts
+    return max(counts, key=lambda k: counts[k]), counts
+
+
+def get_column_mapping_info(df: pd.DataFrame, market: str) -> dict:
+    """
+    Returns which template columns have a matching source column in the client data,
+    and which client columns are not mapped to any template column.
+    """
+    mapping = COLUMN_MAPPINGS.get(market, {})
+    client_cols_lower = {col.lower() for col in df.columns}
+    all_source_cols_lower: set = set()
+
+    mapped = []
+    for template_col, source_cols in mapping.items():
+        all_source_cols_lower.update(sc.lower() for sc in source_cols)
+        found_col = None
+        for sc in source_cols:
+            if sc.lower() in client_cols_lower:
+                found_col = sc
+                break
+        mapped.append({'template': template_col, 'source': found_col, 'found': found_col is not None})
+
+    unmapped = [col for col in df.columns if col.lower() not in all_source_cols_lower]
+    coverage = sum(1 for m in mapped if m['found']) / len(mapped) if mapped else 0
+
+    return {'mapped': mapped, 'unmapped_client_cols': unmapped, 'coverage': round(coverage, 2)}
 
 
 def validate_shipment_data(data: pd.DataFrame, market: str) -> Dict:
