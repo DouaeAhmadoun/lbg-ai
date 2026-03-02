@@ -92,6 +92,22 @@ POSTAL_CODE_RANGES = {
 # French department codes (first 2-3 digits of postal code)
 FRENCH_DEPTS = set(range(1, 96)) | {971, 972, 973, 974, 976}
 
+# Italian province codes (2-letter, uppercase) — unambiguous signal for IT classification
+ITALIAN_PROVINCE_CODES = {
+    'AG', 'AL', 'AN', 'AO', 'AQ', 'AR', 'AP', 'AT', 'AV',
+    'BA', 'BT', 'BL', 'BN', 'BG', 'BI', 'BO', 'BZ', 'BS', 'BR',
+    'CA', 'CL', 'CB', 'CE', 'CT', 'CZ', 'CH', 'CO', 'CS', 'CR', 'KR', 'CN',
+    'EN', 'FM', 'FE', 'FI', 'FG', 'FC', 'FR',
+    'GE', 'GO', 'GR', 'IM', 'IS', 'SP', 'LT', 'LE', 'LC', 'LI', 'LO', 'LU',
+    'MC', 'MN', 'MS', 'MT', 'ME', 'MI', 'MO', 'MB',
+    'NA', 'NO', 'NU', 'OG', 'OT', 'OR',
+    'PD', 'PA', 'PR', 'PV', 'PG', 'PU', 'PE', 'PC', 'PI', 'PT', 'PN', 'PZ', 'PO',
+    'RG', 'RA', 'RC', 'RE', 'RI', 'RN', 'RM', 'RO',
+    'SA', 'SS', 'SV', 'SI', 'SR', 'SO',
+    'TA', 'TE', 'TR', 'TO', 'TP', 'TN', 'TV', 'TS',
+    'UD', 'VA', 'VE', 'VB', 'VC', 'VR', 'VV', 'VI', 'VT',
+}
+
 # Spanish province names (lowercase, no accents) for IT/ES disambiguation
 SPANISH_PROVINCE_NAMES = {
     'alava', 'araba', 'albacete', 'alicante', 'alacant', 'almeria', 'avila',
@@ -119,9 +135,24 @@ def _normalize(text: str) -> str:
 def _classify_row_to_market(row) -> Optional[str]:
     """
     Classify a data row to IT, FR, or ES.
-    Uses postal code as primary signal, province name to disambiguate IT vs ES
-    in the overlapping 00000-59999 range.
+
+    Priority: province field first (most reliable), then postal code as fallback.
+    Rationale: Italian postal codes (00xxx–98xxx) have first-2-digits that overlap
+    with French department codes (01–95), making postal-code-only classification
+    unreliable. Italian 2-letter province codes (MI, NA, RM, ...) are unambiguous.
     """
+    # 1. Province-based classification (highest priority)
+    if 'provincia' in row.index and pd.notna(row['provincia']):
+        prov_raw = str(row['provincia']).strip()
+        if prov_raw and prov_raw not in ('nan', 'None', ''):
+            # Italian: exactly 2 uppercase letters matching a known province code
+            if re.match(r'^[A-Z]{2}$', prov_raw) and prov_raw in ITALIAN_PROVINCE_CODES:
+                return 'IT'
+            # Spanish: full province name
+            if _normalize(prov_raw) in SPANISH_PROVINCE_NAMES:
+                return 'ES'
+
+    # 2. Postal code fallback
     postal_code = None
     for col in ('codigo_postal', 'postal_code'):
         if col in row.index and pd.notna(row[col]):
@@ -140,13 +171,7 @@ def _classify_row_to_market(row) -> Optional[str]:
     if pc_int >= 60000:
         return 'IT'
 
-    # Ambiguous 00000-59999: use province name to distinguish IT from ES
-    if 'provincia' in row.index and pd.notna(row['provincia']):
-        prov = _normalize(str(row['provincia']))
-        if prov in SPANISH_PROVINCE_NAMES:
-            return 'ES'
-
-    return 'IT'  # Default for ambiguous codes
+    return 'IT'  # Default for ambiguous 00000-59999 without province signal
 
 
 class ShipmentProcessor:
@@ -214,24 +239,27 @@ class ShipmentProcessor:
     def load_client_data(self, file_bytes: bytes) -> pd.DataFrame:
         """Load client data from Excel bytes"""
         try:
-            df = pd.read_excel(io.BytesIO(file_bytes), sheet_name='Resultado consulta')
-            
-            # Validate required columns
-            required_columns = ['user_id', 'email', 'nombre', 'apellido']
+            # Try 'Resultado consulta' first, fall back to the first sheet
+            xl = pd.ExcelFile(io.BytesIO(file_bytes))
+            sheet_name = 'Resultado consulta' if 'Resultado consulta' in xl.sheet_names else xl.sheet_names[0]
+            df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=sheet_name)
+            print(f"📄 Loaded sheet: '{sheet_name}' ({len(df)} rows, columns: {list(df.columns)})")
+
+            # Only enforce truly non-substitutable columns
+            required_columns = ['user_id', 'email']
             missing_columns = [col for col in required_columns if col not in df.columns]
-            
             if missing_columns:
                 raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
-            
+
             # Clean data
             df = df.fillna('')
-            
-            # Convert numeric columns
-            numeric_columns = ['user_id', 'codigo_postal', 'telefono']
+
+            # Convert numeric columns to clean strings (removes .0 suffix from floats)
+            numeric_columns = ['user_id', 'codigo_postal', 'postal_code', 'telefono']
             for col in numeric_columns:
                 if col in df.columns:
                     df[col] = df[col].astype(str).str.replace('.0', '', regex=False)
-            
+
             self.client_data = df
             return df
         
