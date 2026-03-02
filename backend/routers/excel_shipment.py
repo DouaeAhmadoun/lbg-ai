@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
 from models.database import Job, get_db
-from services.excel_service import ShipmentProcessor, get_market_preview, _DEFAULT_TEMPLATES_DIR
+from services.excel_service import ShipmentProcessor, _DEFAULT_TEMPLATES_DIR
 from utils.helpers import save_job_file
 from config.settings import settings
 
@@ -22,38 +22,40 @@ processors = {}
 @router.post("/upload-client-data")
 async def upload_client_data(
     file: UploadFile = File(...),
-    session_id: str = Form(...),
-    market: str = Form(...)
+    session_id: str = Form(...)
 ):
-    """Upload client data for a specific market"""
+    """Upload client data — auto-detects dominant market, returns all validation reports"""
     try:
-        if market not in ['IT', 'FR', 'ES']:
-            raise HTTPException(status_code=400, detail=f"Invalid market: {market}")
-
-        print(f"📥 Received file: {file.filename}, session: {session_id}, market: {market}")
+        print(f"📥 Received file: {file.filename}, session: {session_id}")
         file_content = await file.read()
 
         processor = ShipmentProcessor()
-        print(f"✅ Templates loaded: {processor.get_available_markets()}")
-
-        if market not in processor.get_available_markets():
-            raise HTTPException(status_code=400, detail=f"No template found for {market}")
+        available_markets = processor.get_available_markets()
+        print(f"✅ Templates loaded: {available_markets}")
 
         df = processor.load_client_data(file_content)
         print(f"✅ Client data loaded: {len(df)} records, columns: {list(df.columns)}")
 
         processors[session_id] = processor
 
-        from services.excel_service import validate_shipment_data
-        validation_report = validate_shipment_data(df, market)
-        print(f"📋 Validation: {validation_report['valid_rows']}/{validation_report['total_rows']} valid")
+        from services.excel_service import detect_dominant_market, validate_shipment_data
+        suggested_market = detect_dominant_market(df)
+        print(f"💡 Suggested market: {suggested_market}")
+
+        # Pre-compute validation for all available markets so the frontend
+        # can switch between them without extra round-trips
+        validation_reports = {}
+        for market in available_markets:
+            validation_reports[market] = validate_shipment_data(df, market)
+            print(f"📋 {market} validation: {validation_reports[market]['valid_rows']}/{validation_reports[market]['total_rows']} valid")
 
         return {
             "success": True,
             "total_records": len(df),
             "columns": list(df.columns),
-            "available_markets": processor.get_available_markets(),
-            "validation_report": validation_report
+            "available_markets": available_markets,
+            "suggested_market": suggested_market,
+            "validation_reports": validation_reports
         }
 
     except HTTPException:
@@ -173,25 +175,6 @@ async def get_available_markets(session_id: str = None):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-@router.get("/preview/{market}")
-async def preview_market(
-    market: str,
-    session_id: str,
-    filter_mode: str = "auto"
-):
-    """Preview data for a specific market"""
-    try:
-        if session_id not in processors:
-            raise HTTPException(status_code=400, detail="Session not found")
-        
-        processor = processors[session_id]
-        preview = get_market_preview(processor, market, filter_mode)
-        
-        return preview
-    
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/generate")

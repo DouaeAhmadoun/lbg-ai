@@ -330,6 +330,21 @@ def create_zip_file(files_dict: Dict[str, bytes], timestamp: str = None) -> byte
     return zip_buffer.getvalue()
 
 
+def detect_dominant_market(data: pd.DataFrame) -> Optional[str]:
+    """
+    Returns the market with the most classified rows, or None if nothing detected.
+    Used to auto-suggest the market after file upload.
+    """
+    counts: Dict[str, int] = {'IT': 0, 'FR': 0, 'ES': 0}
+    for _, row in data.iterrows():
+        m = _classify_row_to_market(row)
+        if m:
+            counts[m] += 1
+    if not any(counts.values()):
+        return None
+    return max(counts, key=lambda k: counts[k])
+
+
 def validate_shipment_data(data: pd.DataFrame, market: str) -> Dict:
     """
     Validate shipment data for the selected market.
