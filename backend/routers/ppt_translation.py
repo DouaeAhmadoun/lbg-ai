@@ -299,7 +299,7 @@ async def process_translation_background(
             
             # Save output file
             print(f"💾 Saving output file...")
-            ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            ts = datetime.utcnow().strftime("%y%m%d_%H%M")
             stem = job.input_filename.rsplit(".", 1)[0] if "." in job.input_filename else job.input_filename
             output_filename = f"translated_{stem}_{ts}.pptx"
             output_path = save_job_file(output_bytes, output_filename, "outputs")
