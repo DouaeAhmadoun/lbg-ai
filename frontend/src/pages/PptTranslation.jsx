@@ -615,13 +615,22 @@ export default function PptTranslation() {
         </div>
 
         {/* Success Summary - shown after translation completes */}
-        {jobId && !processing && progressMessage && (
-          <div className="mb-4 flex justify-center">
-            <div className="p-4 bg-green-50 border border-green-300 rounded-lg w-2/3 text-center">
-              <p className="text-sm text-green-800 font-medium whitespace-pre-line">{progressMessage}</p>
+        {jobId && !processing && progressMessage && (() => {
+          const isSuccess = translationCompleted && failedSlides === 0
+          const isPartial = translationCompleted && failedSlides > 0
+          const style = isSuccess
+            ? 'bg-green-50 border-green-300 text-green-800'
+            : isPartial
+            ? 'bg-orange-50 border-orange-300 text-orange-800'
+            : 'bg-red-50 border-red-300 text-red-800'
+          return (
+            <div className="mb-4 flex justify-center">
+              <div className={`p-4 border rounded-lg w-2/3 text-center ${style}`}>
+                <p className="text-sm font-medium whitespace-pre-line">{progressMessage}</p>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Detailed slide status table - shown after translation */}
         {jobId && !processing && slideMethods.length > 0 && (
