@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useBlocker } from 'react-router-dom'
 import { Download, ChevronDown, ChevronUp, AlertTriangle, X } from 'lucide-react'
 import axios from 'axios'
 import API_URL from '@/config'
+import { useApp } from '@/contexts/AppContext'
 axios.defaults.baseURL = API_URL
 
 const MARKETS = [
@@ -10,33 +10,6 @@ const MARKETS = [
   { code: 'IT', label: 'Italy',  flag: '🇮🇹' },
   { code: 'ES', label: 'Spain',  flag: '🇪🇸' },
 ]
-
-// --- Navigation warning modal ---
-function NavigationWarningModal({ onConfirm, onCancel }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-orange-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900">Leave this page?</h3>
-        </div>
-        <p className="text-sm text-gray-600 mb-6">
-          You have uploaded data that will be lost if you navigate away. Are you sure you want to leave?
-        </p>
-        <div className="flex space-x-3 justify-end">
-          <button onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
-            Stay on page
-          </button>
-          <button onClick={onConfirm} className="px-4 py-2 text-sm rounded-lg bg-orange-600 text-white hover:bg-orange-700 font-medium">
-            Leave anyway
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // --- Step indicator ---
 function StepIndicator({ step }) {
@@ -141,12 +114,13 @@ export default function ExcelShipment() {
   const [generationSuccess, setGenerationSuccess] = useState(null) // { filename, market }
 
   const hasData = clientData !== null
+  const { setPageGuardActive } = useApp()
 
-  // Block SPA navigation when data is loaded
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hasData && currentLocation.pathname !== nextLocation.pathname
-  )
+  // Register navigation guard when data is loaded
+  useEffect(() => {
+    setPageGuardActive(hasData)
+    return () => setPageGuardActive(false)
+  }, [hasData, setPageGuardActive])
 
   // Block browser refresh/close when data is loaded
   useEffect(() => {
@@ -631,13 +605,6 @@ export default function ExcelShipment() {
         />
       )}
 
-      {/* Navigation warning modal */}
-      {blocker.state === 'blocked' && (
-        <NavigationWarningModal
-          onConfirm={() => blocker.proceed()}
-          onCancel={() => blocker.reset()}
-        />
-      )}
     </div>
   )
 }

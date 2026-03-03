@@ -8,6 +8,7 @@ const AppContext = createContext()
 export function AppProvider({ children }) {
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken'))
+  const [pageGuardActive, setPageGuardActive] = useState(false)
   
   // Check admin status on mount
   useEffect(() => {
@@ -50,7 +51,9 @@ export function AppProvider({ children }) {
       adminToken,
       login,
       logout,
-      getAuthHeader
+      getAuthHeader,
+      pageGuardActive,
+      setPageGuardActive,
     }}>
       {children}
     </AppContext.Provider>
