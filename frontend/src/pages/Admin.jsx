@@ -178,7 +178,7 @@ export default function Admin() {
   }
   
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Admin Panel</h1>
       
       {/* Stats */}

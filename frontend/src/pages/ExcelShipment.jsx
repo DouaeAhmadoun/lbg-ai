@@ -250,7 +250,7 @@ export default function ExcelShipment() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 pb-28">
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-5xl mx-auto px-4">
 
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
@@ -573,7 +573,7 @@ export default function ExcelShipment() {
       {/* Sticky action bar */}
       {clientData && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 shadow-xl">
-          <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
+          <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
 
             {/* Left: context summary */}
             <div className="text-base text-gray-600 flex items-center gap-4 min-w-0">
@@ -602,22 +602,22 @@ export default function ExcelShipment() {
                 <button
                   onClick={handleGenerateClick}
                   disabled={loading}
-                  className={`flex items-center gap-2 px-7 py-3 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     hasBlockingErrors
                       ? 'bg-red-600 hover:bg-red-700 text-white'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                   }`}
                 >
-                  <Download size={17} />
+                  <Download size={19} />
                   <span>{loading ? 'Generating...' : 'Generate & Download'}</span>
                 </button>
               )}
               {generationSuccess && (
                 <a
                   href={`${API_URL}/api/excel/download/${generationSuccess.jobId}`}
-                  className="flex items-center gap-2 px-7 py-3 rounded-lg font-semibold text-sm bg-green-600 hover:bg-green-700 text-white transition-all"
+                  className="flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-base bg-green-600 hover:bg-green-700 text-white transition-all"
                 >
-                  <Download size={17} />
+                  <Download size={19} />
                   Re-download
                 </a>
               )}

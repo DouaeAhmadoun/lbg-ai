@@ -110,7 +110,6 @@ export default function PptTranslation() {
 
   // New state
   const [elapsed, setElapsed] = useState(0)
-  const [autoDownload, setAutoDownload] = useState(() => localStorage.getItem('ppt_auto_download') === 'true')
   const [history, setHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
   const [rangeFrom, setRangeFrom] = useState('')
@@ -307,9 +306,7 @@ export default function PptTranslation() {
             lines.push(`${failCnt} slide${failCnt > 1 ? 's' : ''} failed — download contains ${successCnt} translated slide${successCnt > 1 ? 's' : ''}`)
           setProgressMessage(lines.join('\n'))
 
-          if (autoDownload) {
-            triggerDownload(`${API_URL}/api/ppt/download/${id}`)
-          }
+          triggerDownload(`${API_URL}/api/ppt/download/${id}`)
 
           // Refresh history
           axios.get('/api/ppt/history?limit=5').then(res => setHistory(res.data.jobs || [])).catch(() => {})
@@ -578,20 +575,6 @@ export default function PptTranslation() {
                   </div>
                 </div>
               </div>
-
-              {/* I: Auto-download */}
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoDownload}
-                  onChange={(e) => {
-                    setAutoDownload(e.target.checked)
-                    localStorage.setItem('ppt_auto_download', e.target.checked ? 'true' : 'false')
-                  }}
-                  className="rounded border-gray-300 text-blue-600"
-                />
-                <span className="text-sm text-gray-600">Download automatically when done</span>
-              </label>
 
               {/* Cost estimate */}
               {selectedCount > 0 && (
@@ -889,7 +872,7 @@ export default function PptTranslation() {
               {processing && jobId && (
                 <button
                   onClick={handleCancel}
-                  className="flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-lg hover:bg-red-700 text-sm font-semibold transition-all"
+                  className="flex items-center gap-2 bg-red-600 text-white px-6 py-3.5 rounded-xl hover:bg-red-700 text-base font-semibold transition-all"
                 >
                   ✕ Cancel
                 </button>
@@ -899,9 +882,9 @@ export default function PptTranslation() {
                 <button
                   onClick={handleTranslate}
                   disabled={!file || selectedCount === 0}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-7 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold transition-all"
+                  className="flex items-center gap-2 bg-blue-600 text-white px-8 py-3.5 rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-base font-semibold transition-all"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -912,9 +895,9 @@ export default function PptTranslation() {
               {jobId && !processing && translationCompleted && (
                 <button
                   onClick={handleDownload}
-                  className="flex items-center gap-2 bg-green-600 text-white px-5 py-3 rounded-lg hover:bg-green-700 text-sm font-semibold transition-all"
+                  className="flex items-center gap-2 bg-green-600 text-white px-6 py-3.5 rounded-xl hover:bg-green-700 text-base font-semibold transition-all"
                 >
-                  <Download size={17} />
+                  <Download size={19} />
                   Download
                 </button>
               )}
@@ -923,7 +906,7 @@ export default function PptTranslation() {
                 <button
                   onClick={handleMerge}
                   disabled={merging}
-                  className="flex items-center gap-2 bg-purple-600 text-white px-5 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all"
+                  className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3.5 rounded-xl hover:bg-purple-700 disabled:opacity-50 text-base font-semibold transition-all"
                 >
                   {merging ? '⏳ Merging...' : '🔀 Merge & Download'}
                 </button>
