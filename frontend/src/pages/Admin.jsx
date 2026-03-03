@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../contexts/AppContext'
-import { Lock, Key, Trash2, Settings, Upload, FileSpreadsheet, TrendingUp, Wallet, Eye, EyeOff } from 'lucide-react'
+import { Lock, Key, Trash2, Settings, Upload, FileSpreadsheet, TrendingUp, Wallet, Eye, EyeOff, Download } from 'lucide-react'
 import axios from 'axios'
 import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
@@ -850,10 +850,11 @@ export default function Admin() {
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <a
                               href={`${API_URL}/api/admin/excel/templates/${market}/${tpl.timestamp}/download?token=${adminToken}`}
-                              className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              title="Download"
+                              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title="Download template"
+                              download
                             >
-                              ↓
+                              <Download size={13} /> Download
                             </a>
                             {idx !== 0 && (
                               isPendingSetActive ? (
