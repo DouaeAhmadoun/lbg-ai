@@ -14,7 +14,7 @@ import copy as copy_module
 from datetime import datetime
 import asyncio
 
-from models.database import Job, get_db, AsyncSessionLocal
+from models.database import Job, get_db, AsyncSessionLocal, AdminSettings
 from services.ppt_service import create_translated_ppt, has_image_on_left, detect_language_from_presentation
 from utils.helpers import save_job_file, get_api_key
 from config.settings import settings
@@ -122,7 +122,9 @@ async def translate_ppt(
         if provider == "claude":
             model = settings.default_claude_model
         elif provider in ["openrouter", "ocr_free"]:
-            model = settings.default_openrouter_model
+            result = await db.execute(select(AdminSettings).where(AdminSettings.key == "ocr_model"))
+            row = result.scalar_one_or_none()
+            model = (row.value if row else None) or settings.default_openrouter_model
         else:
             model = "offline"
         

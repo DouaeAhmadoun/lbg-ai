@@ -364,10 +364,6 @@ export default function Admin() {
               Login
             </button>
           </form>
-
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
-            Default password: admin123
-          </p>
         </div>
       </div>
     )
