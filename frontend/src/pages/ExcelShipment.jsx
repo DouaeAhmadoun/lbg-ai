@@ -249,7 +249,7 @@ export default function ExcelShipment() {
   const currentStep = !clientData ? 1 : generationSuccess ? 3 : 2
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-8 pb-28">
       <div className="max-w-4xl mx-auto px-4">
 
         {/* Header */}
@@ -483,41 +483,6 @@ export default function ExcelShipment() {
           </div>
         )}
 
-        {/* Generate button (above validation report) */}
-        {clientData && selectedMarket && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-700">3. Generate Shipment File</p>
-                {hasBlockingErrors ? (
-                  <p className="text-xs text-red-600 mt-0.5">
-                    ⚠️ There are blocking errors — review the validation report below before generating.
-                  </p>
-                ) : hasWarnings ? (
-                  <p className="text-xs text-orange-600 mt-0.5">
-                    Review the data validation report below before generating.
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Review the data validation report below before generating.
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={handleGenerateClick}
-                disabled={loading}
-                className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                  hasBlockingErrors
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-              >
-                <Download size={18} />
-                <span>{loading ? 'Generating...' : 'Generate & Download'}</span>
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Validation Report */}
         {report && (
@@ -603,6 +568,62 @@ export default function ExcelShipment() {
           onConfirm={doGenerate}
           onCancel={() => setShowConfirm(false)}
         />
+      )}
+
+      {/* Sticky action bar */}
+      {clientData && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 shadow-xl">
+          <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
+
+            {/* Left: context summary */}
+            <div className="text-base text-gray-600 flex items-center gap-4 min-w-0">
+              {generationSuccess ? (
+                <span className="font-semibold text-green-700">✓ File generated successfully</span>
+              ) : selectedMarket ? (
+                <>
+                  <span className="font-semibold text-gray-800">
+                    {MARKETS.find(m => m.code === selectedMarket)?.flag}{' '}
+                    {MARKETS.find(m => m.code === selectedMarket)?.label}
+                  </span>
+                  <span className="text-gray-300">|</span>
+                  <span>{clientData.total_records} rows</span>
+                  {hasBlockingErrors && (
+                    <span className="text-red-600 font-medium flex-shrink-0">⚠️ {report.blocking_errors.length} blocking error{report.blocking_errors.length > 1 ? 's' : ''}</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-gray-400">Select a market to generate</span>
+              )}
+            </div>
+
+            {/* Right: action button */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {selectedMarket && !generationSuccess && (
+                <button
+                  onClick={handleGenerateClick}
+                  disabled={loading}
+                  className={`flex items-center gap-2 px-7 py-3 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    hasBlockingErrors
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  <Download size={17} />
+                  <span>{loading ? 'Generating...' : 'Generate & Download'}</span>
+                </button>
+              )}
+              {generationSuccess && (
+                <a
+                  href={`${API_URL}/api/excel/download/${generationSuccess.jobId}`}
+                  className="flex items-center gap-2 px-7 py-3 rounded-lg font-semibold text-sm bg-green-600 hover:bg-green-700 text-white transition-all"
+                >
+                  <Download size={17} />
+                  Re-download
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

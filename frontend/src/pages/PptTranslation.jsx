@@ -10,11 +10,10 @@ axios.defaults.baseURL = API_URL
 const MODEL_OPTIONS = [
   {
     key: 'ocr_free:openrouter/free',
-    name: 'OCR + Free',
+    name: 'OCR + Free Translation',
     price: 'Free',
-    quality: 'Text only',
+    quality: 'Text only, no formatting',
     speed: 'Fast',
-    warning: 'No formatting preserved',
   },
   {
     key: 'claude:claude-3-haiku-20240307',
@@ -383,7 +382,6 @@ export default function PptTranslation() {
   }
 
   // --- Derived ---
-  const isOcrFree = settings.provider === 'ocr_free'
   const isDimmed = processing ? 'opacity-30 pointer-events-none' : ''
   const hasData = slides.length > 0 || processing
   const { setPageGuardActive } = useApp()
@@ -481,7 +479,7 @@ export default function PptTranslation() {
         )}
 
         {/* Upload + Settings */}
-        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 ${isDimmed}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 mb-6 ${isDimmed}`}>
 
           {/* LEFT: Upload */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -542,11 +540,6 @@ export default function PptTranslation() {
                     </button>
                   ))}
                 </div>
-                {isOcrFree && (
-                  <p className="mt-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-                    ⚠️ Free mode: text only, formatting is not preserved. Use Claude for full formatting.
-                  </p>
-                )}
               </div>
 
               {/* B: Languages with swap */}
@@ -866,37 +859,37 @@ export default function PptTranslation() {
 
       {/* Sticky action bar */}
       {(file || jobId) && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
-          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 shadow-xl">
+          <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
 
             {/* Left: context summary */}
-            <div className="text-sm text-gray-600 flex items-center gap-3 min-w-0">
+            <div className="text-base text-gray-600 flex items-center gap-4 min-w-0">
               {processing ? (
                 <>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0" />
-                  <span className="font-medium text-gray-800 truncate">
+                  <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse flex-shrink-0" />
+                  <span className="font-semibold text-gray-800 truncate">
                     {slidesDetected > 0 ? `Slide ${currentSlide} / ${slidesDetected}` : 'Processing...'}
                   </span>
                   <span className="text-gray-400 flex-shrink-0">{formatElapsed(elapsed)}</span>
-                  <span className="font-semibold text-blue-600 flex-shrink-0">{Math.round(progress)}%</span>
+                  <span className="font-bold text-blue-600 flex-shrink-0">{Math.round(progress)}%</span>
                 </>
               ) : translationCompleted ? (
-                <span className="font-medium text-green-700">✓ Translation complete</span>
+                <span className="font-semibold text-green-700 text-base">✓ Translation complete</span>
               ) : (
                 <>
-                  <span>{selectedCount} slide{selectedCount !== 1 ? 's' : ''} selected</span>
-                  {cost > 0 && <span className="text-blue-600 font-medium flex-shrink-0">~${cost.toFixed(2)}</span>}
-                  {cost === 0 && selectedCount > 0 && <span className="text-green-600 font-medium flex-shrink-0">Free</span>}
+                  <span className="font-medium">{selectedCount} slide{selectedCount !== 1 ? 's' : ''} selected</span>
+                  {cost > 0 && <span className="text-blue-600 font-semibold flex-shrink-0">~${cost.toFixed(2)}</span>}
+                  {cost === 0 && selectedCount > 0 && <span className="text-green-600 font-semibold flex-shrink-0">Free</span>}
                 </>
               )}
             </div>
 
             {/* Right: action buttons */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-3 flex-shrink-0">
               {processing && jobId && (
                 <button
                   onClick={handleCancel}
-                  className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-medium transition-all"
+                  className="flex items-center gap-2 bg-red-600 text-white px-5 py-3 rounded-lg hover:bg-red-700 text-sm font-semibold transition-all"
                 >
                   ✕ Cancel
                 </button>
@@ -906,7 +899,7 @@ export default function PptTranslation() {
                 <button
                   onClick={handleTranslate}
                   disabled={!file || selectedCount === 0}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-all"
+                  className="flex items-center gap-2 bg-blue-600 text-white px-7 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold transition-all"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -919,9 +912,9 @@ export default function PptTranslation() {
               {jobId && !processing && translationCompleted && (
                 <button
                   onClick={handleDownload}
-                  className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium transition-all"
+                  className="flex items-center gap-2 bg-green-600 text-white px-5 py-3 rounded-lg hover:bg-green-700 text-sm font-semibold transition-all"
                 >
-                  <Download size={16} />
+                  <Download size={17} />
                   Download
                 </button>
               )}
@@ -930,7 +923,7 @@ export default function PptTranslation() {
                 <button
                   onClick={handleMerge}
                   disabled={merging}
-                  className="flex items-center gap-1.5 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium transition-all"
+                  className="flex items-center gap-2 bg-purple-600 text-white px-5 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all"
                 >
                   {merging ? '⏳ Merging...' : '🔀 Merge & Download'}
                 </button>
