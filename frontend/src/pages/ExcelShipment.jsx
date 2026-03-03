@@ -249,8 +249,8 @@ export default function ExcelShipment() {
   const currentStep = !clientData ? 1 : generationSuccess ? 3 : 2
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 pb-28">
-      <div className="max-w-5xl mx-auto px-4">
+    <>
+      <div className="max-w-5xl mx-auto pb-28">
 
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
@@ -626,6 +626,6 @@ export default function ExcelShipment() {
         </div>
       )}
 
-    </div>
+    </>
   )
 }

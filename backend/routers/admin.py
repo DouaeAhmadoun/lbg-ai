@@ -4,7 +4,7 @@ Handles authentication, API key management, and system settings
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from pydantic import BaseModel
@@ -562,3 +562,25 @@ async def set_active_template(
     shutil.copy2(old_path, templates_dir / new_filename)
 
     return {"success": True, "message": "Template set as active", "new_filename": new_filename}
+
+
+@router.get("/excel/templates/{market}/{timestamp}/download")
+async def download_excel_template(
+    market: str,
+    timestamp: str,
+    token: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+):
+    """Download a specific template file (supports Bearer header or ?token= query param)"""
+    from utils.helpers import verify_session
+    raw_token = token or (authorization.split(" ")[1] if authorization and authorization.startswith("Bearer ") else None)
+    if not raw_token or not verify_session(raw_token):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    file_path = _DEFAULT_TEMPLATES_DIR / f"Shipment_{market}_{timestamp}.xlsx"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Template not found")
+    return FileResponse(
+        path=str(file_path),
+        filename=file_path.name,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )

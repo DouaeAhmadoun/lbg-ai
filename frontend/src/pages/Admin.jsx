@@ -6,13 +6,14 @@ import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
 
 export default function Admin() {
-  const { isAdmin, login, getAuthHeader } = useApp()
+  const { isAdmin, login, adminToken, getAuthHeader } = useApp()
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
 
   const [apiKeys, setApiKeys] = useState([])
   const [stats, setStats] = useState(null)
   const [newPassword, setNewPassword] = useState({ current: '', new: '' })
+  const [passwordMessage, setPasswordMessage] = useState(null) // { type: 'success'|'error', text }
 
   // Templates state
   const [templates, setTemplates] = useState({})
@@ -136,7 +137,7 @@ export default function Admin() {
 
   const handleChangePassword = async (e) => {
     e.preventDefault()
-
+    setPasswordMessage(null)
     try {
       await axios.post('/api/admin/change-password', {
         current_password: newPassword.current,
@@ -144,11 +145,10 @@ export default function Admin() {
       }, {
         headers: getAuthHeader()
       })
-
-      alert('Password changed successfully')
+      setPasswordMessage({ type: 'success', text: 'Password changed successfully' })
       setNewPassword({ current: '', new: '' })
     } catch (error) {
-      alert('Error changing password: ' + error.message)
+      setPasswordMessage({ type: 'error', text: error.response?.data?.detail || error.message })
     }
   }
 
@@ -589,34 +589,6 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Change Password */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Change Password</h2>
-
-        <form onSubmit={handleChangePassword} className="max-w-md">
-          <input
-            type="password"
-            value={newPassword.current}
-            onChange={(e) => setNewPassword(prev => ({ ...prev, current: e.target.value }))}
-            placeholder="Current password"
-            className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 mb-3 dark:bg-gray-700 dark:text-gray-100"
-          />
-          <input
-            type="password"
-            value={newPassword.new}
-            onChange={(e) => setNewPassword(prev => ({ ...prev, new: e.target.value }))}
-            placeholder="New password"
-            className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 mb-3 dark:bg-gray-700 dark:text-gray-100"
-          />
-          <button
-            type="submit"
-            className="bg-primary-600 text-white px-6 py-2 rounded hover:bg-primary-700"
-          >
-            Change Password
-          </button>
-        </form>
-      </div>
-
       {/* Excel Templates */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <div className="flex items-center space-x-2 mb-5">
@@ -624,91 +596,191 @@ export default function Admin() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Excel Templates</h2>
         </div>
 
-        {/* Upload form */}
-        <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 mb-5">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Upload a new template</p>
-          <div className="flex gap-3 items-end flex-wrap">
-            <div>
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Market code</label>
+        {/* Upload zone */}
+        <div className="rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10 p-5 mb-6">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">Upload a new template</p>
+          <div className="flex gap-4 items-start flex-wrap">
+            {/* Market code */}
+            <div className="flex-shrink-0">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Market code</label>
               <input
                 type="text"
                 value={templateMarket}
                 onChange={e => setTemplateMarket(e.target.value.toUpperCase().slice(0, 2))}
                 placeholder="ES"
                 maxLength={2}
-                className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+                className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono uppercase text-center font-bold tracking-widest focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
               />
+              {templateMarket.length > 0 && templateMarket.length < 2 && (
+                <p className="text-xs text-amber-500 mt-1">2 chars needed</p>
+              )}
             </div>
-            <div className="flex-1 min-w-48">
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Template file (.xlsx)</label>
-              <input
-                ref={templateInputRef}
-                type="file"
-                accept=".xlsx"
-                onChange={e => setTemplateFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 dark:file:bg-emerald-900/20 file:text-emerald-700 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-900/30 cursor-pointer"
-              />
+
+            {/* File drop zone */}
+            <div className="flex-1 min-w-56">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Template file (.xlsx)</label>
+              <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
+                templateFile
+                  ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-600'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 dark:hover:border-emerald-700 bg-white dark:bg-gray-700'
+              }`}>
+                <FileSpreadsheet size={18} className={templateFile ? 'text-emerald-600' : 'text-gray-400 dark:text-gray-500'} />
+                <span className={`text-sm truncate ${templateFile ? 'text-emerald-700 dark:text-emerald-300 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                  {templateFile ? templateFile.name : 'Click to select or drag & drop'}
+                </span>
+                {templateFile && (
+                  <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                    {(templateFile.size / 1024).toFixed(0)} KB
+                  </span>
+                )}
+                <input
+                  ref={templateInputRef}
+                  type="file"
+                  accept=".xlsx"
+                  onChange={e => setTemplateFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </label>
             </div>
-            <button
-              onClick={handleTemplateUpload}
-              disabled={templateUploading || !templateFile || templateMarket.length !== 2}
-              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Upload size={15} />
-              <span>{templateUploading ? 'Uploading…' : 'Upload'}</span>
-            </button>
+
+            {/* Upload button */}
+            <div className="flex-shrink-0 pt-5">
+              <button
+                onClick={handleTemplateUpload}
+                disabled={templateUploading || !templateFile || templateMarket.length !== 2}
+                className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <Upload size={15} />
+                {templateUploading ? 'Uploading…' : 'Upload'}
+              </button>
+            </div>
           </div>
+
           {templateMessage && (
-            <p className={`mt-2 text-sm ${templateMessage.type === 'success' ? 'text-emerald-700' : 'text-red-600'}`}>
-              {templateMessage.type === 'success' ? '✓ ' : '✗ '}{templateMessage.text}
+            <p className={`mt-3 text-sm flex items-center gap-1.5 ${templateMessage.type === 'success' ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+              {templateMessage.type === 'success' ? '✓' : '✗'} {templateMessage.text}
             </p>
           )}
         </div>
 
         {/* Templates list */}
         {Object.keys(templates).length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500">No templates found.</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No templates uploaded yet.</p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {Object.entries(templates).sort(([a], [b]) => a.localeCompare(b)).map(([market, versions]) => (
               <div key={market}>
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  {market} <span className="text-gray-400 dark:text-gray-500 font-normal">({versions.length} version{versions.length > 1 ? 's' : ''})</span>
-                </p>
-                <div className="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
-                  {versions.map((tpl, idx) => (
-                    <div key={tpl.timestamp} className={`flex items-center justify-between px-4 py-2.5 ${idx === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-gray-800'}`}>
-                      <div className="flex items-center space-x-3">
-                        {idx === 0 && (
-                          <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+                {/* Market header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold font-mono">
+                    {market}
+                  </span>
+                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Market {market}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                    {versions.length} version{versions.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                  {versions.map((tpl, idx) => {
+                    const uploadedAt = tpl.timestamp
+                      ? new Date(
+                          tpl.timestamp.replace(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3T$4:$5:$6')
+                        ).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : '—'
+                    return (
+                      <div key={tpl.timestamp} className={`flex items-center gap-4 px-4 py-3 ${idx === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-gray-800'}`}>
+                        {/* Status badge */}
+                        {idx === 0 ? (
+                          <span className="flex-shrink-0 text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full font-medium">Active</span>
+                        ) : (
+                          <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">v{versions.length - idx}</span>
                         )}
-                        <span className="text-sm font-mono text-gray-600 dark:text-gray-300">{tpl.filename}</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">{tpl.size}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {idx !== 0 && (
-                          <button
-                            onClick={() => handleSetActive(market, tpl.timestamp)}
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-gray-700"
+
+                        {/* File info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-mono text-gray-700 dark:text-gray-200 truncate">{tpl.filename}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{uploadedAt} · {tpl.size}</p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <a
+                            href={`${API_URL}/api/admin/excel/templates/${market}/${tpl.timestamp}/download?token=${adminToken}`}
+                            className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            title="Download this template"
                           >
-                            Set active
+                            ↓
+                          </a>
+                          {idx !== 0 && (
+                            <button
+                              onClick={() => handleSetActive(market, tpl.timestamp)}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              Set active
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteTemplate(market, tpl.timestamp)}
+                            disabled={versions.length <= 1}
+                            className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Delete
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteTemplate(market, tpl.timestamp)}
-                          disabled={versions.length <= 1}
-                          className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          Delete
-                        </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}
           </div>
         )}
+      </div>
+
+      {/* Change Password */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center space-x-2 mb-5">
+          <Lock className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Change Password</h2>
+        </div>
+
+        <form onSubmit={handleChangePassword} className="max-w-md space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Current password</label>
+            <input
+              type="password"
+              value={newPassword.current}
+              onChange={(e) => { setNewPassword(prev => ({ ...prev, current: e.target.value })); setPasswordMessage(null) }}
+              placeholder="••••••••"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">New password</label>
+            <input
+              type="password"
+              value={newPassword.new}
+              onChange={(e) => { setNewPassword(prev => ({ ...prev, new: e.target.value })); setPasswordMessage(null) }}
+              placeholder="••••••••"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+            />
+          </div>
+
+          {passwordMessage && (
+            <p className={`text-sm ${passwordMessage.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              {passwordMessage.type === 'success' ? '✓ ' : '✗ '}{passwordMessage.text}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={!newPassword.current || !newPassword.new}
+            className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Update password
+          </button>
+        </form>
       </div>
 
       {/* File Cleanup */}
