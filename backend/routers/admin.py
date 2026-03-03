@@ -168,19 +168,97 @@ async def delete_api_key(
 
 
 # System settings
+
+class SaveSettingsRequest(BaseModel):
+    ocr_model: Optional[str] = None
+
+
+class TestModelRequest(BaseModel):
+    model: str
+
+
 @router.get("/settings")
 async def get_settings(
-    session_token: str = Depends(get_admin_session)
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
 ):
     """Get system settings"""
+    result = await db.execute(
+        select(AdminSettings).where(AdminSettings.key == "ocr_model")
+    )
+    ocr_setting = result.scalar_one_or_none()
+    ocr_model = ocr_setting.value if ocr_setting else settings.default_ocr_model
+
     return {
         "claude_model": settings.default_claude_model,
         "openrouter_model": settings.default_openrouter_model,
         "default_source_lang": settings.default_source_lang,
         "default_target_lang": settings.default_target_lang,
         "file_retention_days": settings.file_retention_days,
-        "max_upload_size": format_file_size(settings.max_upload_size)
+        "max_upload_size": format_file_size(settings.max_upload_size),
+        "ocr_model": ocr_model,
     }
+
+
+@router.post("/settings")
+async def save_settings(
+    request: SaveSettingsRequest,
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """Save system settings"""
+    if request.ocr_model is not None:
+        result = await db.execute(
+            select(AdminSettings).where(AdminSettings.key == "ocr_model")
+        )
+        setting = result.scalar_one_or_none()
+        if setting:
+            setting.value = request.ocr_model
+            setting.updated_at = datetime.utcnow()
+        else:
+            db.add(AdminSettings(key="ocr_model", value=request.ocr_model))
+        await db.commit()
+
+    return {"success": True, "message": "Settings saved"}
+
+
+@router.post("/test-model")
+async def test_openrouter_model(
+    request: TestModelRequest,
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """Test if an OpenRouter model is accessible"""
+    import httpx
+
+    model = request.model.strip()
+    if not model:
+        raise HTTPException(status_code=400, detail="Model name required")
+
+    api_key = await get_api_key("openrouter", db)
+    if not api_key:
+        raise HTTPException(status_code=400, detail="OpenRouter API key not configured")
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Reply with one word: ok"}],
+                    "max_tokens": 5,
+                }
+            )
+        data = resp.json()
+        if resp.status_code == 200:
+            reply = data.get("choices", [{}])[0].get("message", {}).get("content", "ok")
+            return {"valid": True, "message": f"Model works ✓ (replied: {reply.strip()[:30]!r})"}
+        else:
+            detail = data.get("error", {}).get("message", f"HTTP {resp.status_code}")
+            return {"valid": False, "message": detail}
+    except Exception as e:
+        return {"valid": False, "message": str(e)}
 
 
 @router.post("/cleanup")
@@ -189,7 +267,7 @@ async def cleanup_files(
 ):
     """Manually cleanup old files"""
     deleted_count = cleanup_old_files()
-    
+
     return {
         "success": True,
         "message": f"Deleted {deleted_count} old files"

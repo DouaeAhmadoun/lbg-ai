@@ -23,6 +23,8 @@ export default function Admin() {
   const templateInputRef = useRef(null)
   const [ocrModel, setOcrModel] = useState('openrouter/free')
   const [ocrModelSaved, setOcrModelSaved] = useState(false)
+  const [modelTestResult, setModelTestResult] = useState(null) // { valid, message }
+  const [modelTesting, setModelTesting] = useState(false)
   
   useEffect(() => {
     if (isAdmin) {
@@ -79,19 +81,25 @@ export default function Admin() {
 
   const handleSaveOcrModel = async () => {
     try {
-      await axios.post('/api/admin/settings', {
-        ocr_model: ocrModel
-      }, {
-        headers: getAuthHeader()
-      })
+      await axios.post('/api/admin/settings', { ocr_model: ocrModel }, { headers: getAuthHeader() })
       setOcrModelSaved(true)
+      setModelTestResult(null)
       setTimeout(() => setOcrModelSaved(false), 2000)
     } catch (error) {
-      // If endpoint doesn't exist, just show saved visually
-      // The model will be read from settings.py default_ocr_model
-      setOcrModelSaved(true)
-      setTimeout(() => setOcrModelSaved(false), 2000)
-      console.log('Note: Save endpoint not available, update settings.py directly')
+      alert('Error saving: ' + (error.response?.data?.detail || error.message))
+    }
+  }
+
+  const handleTestModel = async () => {
+    setModelTesting(true)
+    setModelTestResult(null)
+    try {
+      const res = await axios.post('/api/admin/test-model', { model: ocrModel }, { headers: getAuthHeader() })
+      setModelTestResult(res.data)
+    } catch (error) {
+      setModelTestResult({ valid: false, message: error.response?.data?.detail || error.message })
+    } finally {
+      setModelTesting(false)
     }
   }
   
@@ -189,15 +197,13 @@ export default function Admin() {
 
   const handleCleanup = async () => {
     if (!confirm('Delete files older than 30 days?')) return
-    
+
     try {
-      const response = await axios.post('/api/admin/cleanup', {}, {
-        headers: getAuthHeader()
-      })
+      const response = await axios.post('/api/admin/cleanup', {}, { headers: getAuthHeader() })
       alert(response.data.message)
       loadStats()
     } catch (error) {
-      alert('Error cleaning up files: ' + error.message)
+      alert('Error cleaning up files: ' + (error.response?.data?.detail || error.message))
     }
   }
   
@@ -328,10 +334,17 @@ export default function Admin() {
           <input
             type="text"
             value={ocrModel}
-            onChange={(e) => setOcrModel(e.target.value)}
+            onChange={(e) => { setOcrModel(e.target.value); setModelTestResult(null) }}
             placeholder="google/gemma-3-12b-it:free"
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
           />
+          <button
+            onClick={handleTestModel}
+            disabled={modelTesting || !ocrModel.trim()}
+            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            {modelTesting ? 'Testing…' : 'Test'}
+          </button>
           <button
             onClick={handleSaveOcrModel}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -344,30 +357,35 @@ export default function Admin() {
           </button>
         </div>
 
+        {modelTestResult && (
+          <p className={`mt-2 text-sm ${modelTestResult.valid ? 'text-green-700' : 'text-red-600'}`}>
+            {modelTestResult.valid ? '✓ ' : '✗ '}{modelTestResult.message}
+          </p>
+        )}
+
         <div className="mt-3 text-xs text-gray-500 space-y-1">
           <p>💡 <strong>Recommended free models (text only, good translation):</strong></p>
           <ul className="ml-4 space-y-1 font-mono">
             <li
               className="cursor-pointer hover:text-blue-600"
-              onClick={() => setOcrModel('openrouter/free')}
+              onClick={() => { setOcrModel('openrouter/free'); setModelTestResult(null) }}
             >
               openrouter/free ← recommended (auto-selects best available)
             </li>
             <li
               className="cursor-pointer hover:text-blue-600"
-              onClick={() => setOcrModel('google/gemma-3-12b-it:free')}
+              onClick={() => { setOcrModel('google/gemma-3-12b-it:free'); setModelTestResult(null) }}
             >
               google/gemma-3-12b-it:free
             </li>
             <li
               className="cursor-pointer hover:text-blue-600"
-              onClick={() => setOcrModel('meta-llama/llama-3.1-8b-instruct:free')}
+              onClick={() => { setOcrModel('meta-llama/llama-3.1-8b-instruct:free'); setModelTestResult(null) }}
             >
               meta-llama/llama-3.1-8b-instruct:free
             </li>
           </ul>
-          <p className="mt-2">⚠️ Click a model name to select it, then click Save.</p>
-          <p>📝 To apply permanently, update <code className="bg-gray-100 px-1 rounded">default_ocr_model</code> in <code className="bg-gray-100 px-1 rounded">config/settings.py</code></p>
+          <p className="mt-2">⚠️ Click a model name to select it, test it, then Save.</p>
         </div>
       </div>
       
