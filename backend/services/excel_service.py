@@ -14,8 +14,11 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-# Absolute path to templates directory (robust regardless of working directory)
-_DEFAULT_TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+# Use /data/templates in production (persistent volume on Railway),
+# fall back to local backend/templates/ for local development
+_DATA_TEMPLATES = Path("/data/templates")
+_LOCAL_TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+_DEFAULT_TEMPLATES_DIR = _DATA_TEMPLATES if _DATA_TEMPLATES.parent.exists() else _LOCAL_TEMPLATES
 
 # Column mapping configuration
 # Maps template columns → client data columns (with fallback)
@@ -185,14 +188,14 @@ def _classify_row_to_market(row) -> Optional[str]:
 class ShipmentProcessor:
     """Handles shipment file generation"""
 
-    def __init__(self, templates_dir: str = None):
+    def __init__(self, templates_dir: str = None, active_overrides: dict = None):
         self.client_data = None
         self.templates = {}
         self.templates_dir = templates_dir or str(_DEFAULT_TEMPLATES_DIR)
-        self._load_latest_templates()
+        self._load_templates(active_overrides or {})
 
-    def _load_latest_templates(self):
-        """Load the latest template for each market from templates directory"""
+    def _load_templates(self, active_overrides: dict):
+        """Load the active template for each market. active_overrides maps market -> timestamp."""
         templates_path = Path(self.templates_dir)
         if not templates_path.exists():
             print(f"⚠️  Templates directory not found: {self.templates_dir}")
@@ -214,11 +217,15 @@ class ShipmentProcessor:
 
         for market, templates_list in market_templates.items():
             templates_list.sort(key=lambda x: x['timestamp'], reverse=True)
-            latest = templates_list[0]
+            active_ts = active_overrides.get(market)
+            if active_ts:
+                chosen = next((t for t in templates_list if t['timestamp'] == active_ts), templates_list[0])
+            else:
+                chosen = templates_list[0]
             try:
-                with open(latest['path'], 'rb') as f:
+                with open(chosen['path'], 'rb') as f:
                     self.templates[market] = f.read()
-                print(f"✅ Loaded latest template for {market}: {latest['path'].name}")
+                print(f"✅ Loaded template for {market}: {chosen['path'].name}")
             except Exception as e:
                 print(f"❌ Error loading {market} template: {e}")
 

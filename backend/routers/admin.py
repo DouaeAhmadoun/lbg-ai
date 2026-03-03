@@ -455,7 +455,8 @@ async def get_balance(
 # Excel Templates Management
 @router.get("/excel/templates")
 async def list_excel_templates(
-    session_token: str = Depends(get_admin_session)
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
 ):
     """List all Excel templates with versions"""
     import re
@@ -463,7 +464,7 @@ async def list_excel_templates(
     templates_dir = _DEFAULT_TEMPLATES_DIR
 
     if not templates_dir.exists():
-        return {"templates": {}, "markets": []}
+        return {"templates": {}, "markets": [], "active_timestamps": {}}
 
     pattern = re.compile(r'^Shipment_([A-Z]{2})_(\d{8}_\d{6})\.xlsx$')
     templates_by_market = {}
@@ -484,9 +485,20 @@ async def list_excel_templates(
     for market in templates_by_market:
         templates_by_market[market].sort(key=lambda x: x['timestamp'], reverse=True)
 
+    # Read active timestamp per market from DB; fall back to latest if not set
+    active_timestamps = {}
+    for market, versions in templates_by_market.items():
+        stored = await _get_db_setting(db, f"active_template_{market}")
+        existing_timestamps = {v["timestamp"] for v in versions}
+        if stored and stored in existing_timestamps:
+            active_timestamps[market] = stored
+        else:
+            active_timestamps[market] = versions[0]["timestamp"]
+
     return {
         "templates": templates_by_market,
-        "markets": sorted(templates_by_market.keys())
+        "markets": sorted(templates_by_market.keys()),
+        "active_timestamps": active_timestamps,
     }
 
 
@@ -494,7 +506,8 @@ async def list_excel_templates(
 async def upload_excel_template(
     market: str = Form(...),
     file: UploadFile = File(...),
-    session_token: str = Depends(get_admin_session)
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
 ):
     """Upload a new Excel template for a market"""
     market = market.upper().strip()
@@ -514,6 +527,9 @@ async def upload_excel_template(
     with dest.open("wb") as f:
         shutil.copyfileobj(file.file, f)
 
+    # Automatically set newly uploaded template as active
+    await _set_db_setting(db, f"active_template_{market}", timestamp)
+
     return {
         "success": True,
         "filename": filename,
@@ -526,7 +542,8 @@ async def upload_excel_template(
 async def delete_excel_template(
     market: str,
     timestamp: str,
-    session_token: str = Depends(get_admin_session)
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
 ):
     """Delete a specific template version"""
     templates_dir = _DEFAULT_TEMPLATES_DIR
@@ -541,6 +558,12 @@ async def delete_excel_template(
         raise HTTPException(status_code=400, detail=f"Cannot delete the last template for market {market}")
 
     file_path.unlink()
+
+    # If deleted template was active, clear active setting (will fall back to latest)
+    active = await _get_db_setting(db, f"active_template_{market}")
+    if active == timestamp:
+        await _set_db_setting(db, f"active_template_{market}", "")
+
     return {"success": True, "message": f"Template {filename} deleted"}
 
 
@@ -548,20 +571,19 @@ async def delete_excel_template(
 async def set_active_template(
     market: str,
     timestamp: str,
-    session_token: str = Depends(get_admin_session)
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
 ):
-    """Promote an older template to active by copying it with a newer timestamp"""
+    """Mark a specific template version as active for this market"""
     templates_dir = _DEFAULT_TEMPLATES_DIR
     old_path = templates_dir / f"Shipment_{market}_{timestamp}.xlsx"
 
     if not old_path.exists():
         raise HTTPException(status_code=404, detail="Template not found")
 
-    new_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    new_filename = f"Shipment_{market}_{new_timestamp}.xlsx"
-    shutil.copy2(old_path, templates_dir / new_filename)
+    await _set_db_setting(db, f"active_template_{market}", timestamp)
 
-    return {"success": True, "message": "Template set as active", "new_filename": new_filename}
+    return {"success": True, "message": "Template set as active"}
 
 
 @router.get("/excel/templates/{market}/{timestamp}/download")

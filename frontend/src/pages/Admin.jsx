@@ -74,6 +74,7 @@ export default function Admin() {
 
   // Templates state
   const [templates, setTemplates] = useState({})
+  const [activeTimestamps, setActiveTimestamps] = useState({})
   const [templateMarket, setTemplateMarket] = useState('')
   const [templateFile, setTemplateFile] = useState(null)
   const [templateUploading, setTemplateUploading] = useState(false)
@@ -209,6 +210,7 @@ export default function Admin() {
     try {
       const res = await axios.get('/api/admin/excel/templates', { headers: getAuthHeader() })
       setTemplates(res.data.templates || {})
+      setActiveTimestamps(res.data.active_timestamps || {})
     } catch (error) { console.error('Error loading templates:', error) }
   }
 
@@ -834,9 +836,10 @@ export default function Admin() {
                         : '—'
                       const isPendingDelete = deletingTemplate?.market === market && deletingTemplate?.timestamp === tpl.timestamp
                       const isPendingSetActive = confirmSetActive?.market === market && confirmSetActive?.timestamp === tpl.timestamp
+                      const isActive = activeTimestamps[market] === tpl.timestamp
                       return (
-                        <div key={tpl.timestamp} className={`flex items-center gap-4 px-4 py-3 ${idx === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-gray-800'}`}>
-                          {idx === 0 ? (
+                        <div key={tpl.timestamp} className={`flex items-center gap-4 px-4 py-3 ${isActive ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-gray-800'}`}>
+                          {isActive ? (
                             <span className="flex-shrink-0 text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full font-medium">Active</span>
                           ) : (
                             <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">v{versions.length - idx}</span>
@@ -856,7 +859,7 @@ export default function Admin() {
                             >
                               <Download size={13} /> Download
                             </a>
-                            {idx !== 0 && (
+                            {!isActive && (
                               isPendingSetActive ? (
                                 <>
                                   <button

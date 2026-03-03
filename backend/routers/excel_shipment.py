@@ -7,9 +7,10 @@ import pandas as pd
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from datetime import datetime
 
-from models.database import Job, get_db
+from models.database import Job, get_db, AdminSettings
 from services.excel_service import ShipmentProcessor, _DEFAULT_TEMPLATES_DIR
 from utils.helpers import save_job_file
 from config.settings import settings
@@ -23,14 +24,25 @@ processors = {}
 @router.post("/upload-client-data")
 async def upload_client_data(
     file: UploadFile = File(...),
-    session_id: str = Form(...)
+    session_id: str = Form(...),
+    db: AsyncSession = Depends(get_db)
 ):
     """Upload client data — auto-detects dominant market, returns all validation reports"""
     try:
         print(f"📥 Received file: {file.filename}, session: {session_id}")
         file_content = await file.read()
 
-        processor = ShipmentProcessor()
+        # Read active template overrides from DB
+        result = await db.execute(
+            select(AdminSettings).where(AdminSettings.key.like("active_template_%"))
+        )
+        rows = result.scalars().all()
+        active_overrides = {
+            row.key.replace("active_template_", ""): row.value
+            for row in rows if row.value
+        }
+
+        processor = ShipmentProcessor(active_overrides=active_overrides)
         available_markets = processor.get_available_markets()
         print(f"✅ Templates loaded: {available_markets}")
 
