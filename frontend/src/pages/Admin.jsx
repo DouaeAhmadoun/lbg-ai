@@ -5,8 +5,20 @@ import axios from 'axios'
 import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
 
+function Tooltip({ text }) {
+  return (
+    <span className="relative inline-flex group ml-1 align-middle">
+      <span className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-xs flex items-center justify-center cursor-help font-semibold leading-none select-none">?</span>
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 bg-gray-800 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg text-left normal-case font-normal whitespace-normal">
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800 dark:border-t-gray-700" />
+      </span>
+    </span>
+  )
+}
+
 export default function Admin() {
-  const { isAdmin, login, adminToken, getAuthHeader } = useApp()
+  const { isAdmin, login, adminToken, getAuthHeader, sessionExpired } = useApp()
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
 
@@ -279,6 +291,12 @@ export default function Admin() {
 
           <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-gray-100">Admin Login</h2>
 
+          {sessionExpired && (
+            <div className="mb-4 px-4 py-3 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 text-sm text-center">
+              Session expirée — veuillez vous reconnecter.
+            </div>
+          )}
+
           <form onSubmit={handleLogin}>
             <input
               type="password"
@@ -332,12 +350,12 @@ export default function Admin() {
             <p className="text-3xl font-bold text-green-600">{stats.completed_jobs}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 dark:text-gray-300">All-time cost</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">All-time cost <Tooltip text="Cumul des coûts Claude et OpenRouter pour les jobs de traduction PPT. Les jobs Excel sont gratuits (pas d'API)." /></p>
             <p className="text-3xl font-bold dark:text-gray-100">${stats.total_cost}</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PPT API usage only</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 dark:text-gray-300">Storage</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Storage <Tooltip text="Taille totale des fichiers uploadés et des fichiers générés encore présents sur le serveur." /></p>
             <p className="text-3xl font-bold dark:text-gray-100">{stats.storage.total}</p>
           </div>
         </div>
@@ -352,7 +370,7 @@ export default function Admin() {
           </div>
           {/* Monthly budget input */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Monthly budget $</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Monthly budget $ <Tooltip text="Seuil d'alerte mensuel. Un avertissement s'affiche à partir de 80%. Aucun blocage automatique." /></span>
             <input
               type="number"
               min="0"
@@ -515,7 +533,10 @@ export default function Admin() {
                 <div>
                   <p className="font-medium capitalize text-gray-900 dark:text-gray-100">{provider}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {provider === 'openrouter' ? 'Used for OCR Free mode too' : 'Claude Haiku & Sonnet 4'}
+                    {provider === 'openrouter'
+                    ? <span>Used for OCR Free mode <Tooltip text="Clé API OpenRouter requise pour le mode OCR Gratuit. Obtenez une clé sur openrouter.ai — un compte gratuit suffit." /></span>
+                    : <span>Claude Haiku & Sonnet 4 <Tooltip text="Clé API Anthropic requise pour les modes de traduction Haiku et Sonnet. Obtenez une clé sur console.anthropic.com." /></span>
+                  }
                   </p>
                   {key ? (
                     <p className="text-sm text-gray-600 dark:text-gray-300 font-mono">{key.api_key}</p>
@@ -538,8 +559,8 @@ export default function Admin() {
       {/* OCR Free Model Settings */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <div className="flex items-center space-x-2 mb-4">
-          <Settings className="w-5 h-5" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">OCR Free Mode — Model</h2>
+          <Settings className="w-5 h-5 text-orange-500" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">OpenRouter Model Selection for OCR Free Mode</h2>
         </div>
 
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
@@ -622,7 +643,7 @@ export default function Admin() {
           <div className="flex gap-4 items-start flex-wrap">
             {/* Market code */}
             <div className="flex-shrink-0">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Market code</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Market code <Tooltip text="Code marché à 2 lettres (ex: ES, IT, FR). Doit correspondre exactement au code utilisé dans les fichiers d'expédition." /></label>
               <input
                 type="text"
                 value={templateMarket}
@@ -807,7 +828,10 @@ export default function Admin() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">File Cleanup</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              File Cleanup
+            </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Delete uploaded and output files older than 30 days
             </p>
@@ -827,7 +851,7 @@ export default function Admin() {
             onChange={e => handleToggleAutoCleanup(e.target.checked)}
             className="w-4 h-4 rounded border-gray-300 text-blue-600"
           />
-          <span className="text-sm text-gray-600 dark:text-gray-400">Enable automatic daily cleanup</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">Enable automatic daily cleanup <Tooltip text="Supprime automatiquement chaque nuit les fichiers uploadés et générés de plus de 30 jours." /></span>
         </label>
       </div>
 

@@ -8,6 +8,7 @@ const AppContext = createContext()
 export function AppProvider({ children }) {
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken'))
+  const [sessionExpired, setSessionExpired] = useState(false)
   const [pageGuardActive, setPageGuardActive] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
 
@@ -36,6 +37,7 @@ export function AppProvider({ children }) {
       localStorage.setItem('adminToken', token)
       setAdminToken(token)
       setIsAdmin(true)
+      setSessionExpired(false)
       return { success: true }
     } catch (error) {
       return {
@@ -49,16 +51,33 @@ export function AppProvider({ children }) {
     localStorage.removeItem('adminToken')
     setAdminToken(null)
     setIsAdmin(false)
+    setSessionExpired(false)
   }
 
   const getAuthHeader = () => {
     return adminToken ? { Authorization: `Bearer ${adminToken}` } : {}
   }
 
+  // Auto-logout on 401 (expired session)
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response?.status === 401 && adminToken) {
+          logout()
+          setSessionExpired(true)
+        }
+        return Promise.reject(error)
+      }
+    )
+    return () => axios.interceptors.response.eject(interceptor)
+  }, [adminToken])
+
   return (
     <AppContext.Provider value={{
       isAdmin,
       adminToken,
+      sessionExpired,
       login,
       logout,
       getAuthHeader,

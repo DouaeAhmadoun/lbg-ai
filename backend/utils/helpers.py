@@ -40,7 +40,7 @@ async def create_session(db: AsyncSession) -> str:
     token = generate_session_token()
     active_sessions[token] = {
         "created_at": datetime.utcnow(),
-        "expires_at": datetime.utcnow() + timedelta(hours=24)
+        "expires_at": datetime.utcnow() + timedelta(minutes=15)
     }
     return token
 
@@ -54,7 +54,9 @@ def verify_session(token: str) -> bool:
     if datetime.utcnow() > session["expires_at"]:
         del active_sessions[token]
         return False
-    
+
+    # Rolling TTL: refresh expiry on each valid request
+    session["expires_at"] = datetime.utcnow() + timedelta(minutes=15)
     return True
 
 
