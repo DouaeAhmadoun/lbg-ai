@@ -171,10 +171,29 @@ async def delete_api_key(
 
 class SaveSettingsRequest(BaseModel):
     ocr_model: Optional[str] = None
+    monthly_budget: Optional[float] = None
+    auto_cleanup_enabled: Optional[bool] = None
 
 
 class TestModelRequest(BaseModel):
     model: str
+
+
+async def _get_db_setting(db: AsyncSession, key: str) -> Optional[str]:
+    result = await db.execute(select(AdminSettings).where(AdminSettings.key == key))
+    row = result.scalar_one_or_none()
+    return row.value if row else None
+
+
+async def _set_db_setting(db: AsyncSession, key: str, value: str):
+    result = await db.execute(select(AdminSettings).where(AdminSettings.key == key))
+    row = result.scalar_one_or_none()
+    if row:
+        row.value = value
+        row.updated_at = datetime.utcnow()
+    else:
+        db.add(AdminSettings(key=key, value=value))
+    await db.commit()
 
 
 @router.get("/settings")
@@ -183,11 +202,11 @@ async def get_settings(
     db: AsyncSession = Depends(get_db)
 ):
     """Get system settings"""
-    result = await db.execute(
-        select(AdminSettings).where(AdminSettings.key == "ocr_model")
-    )
-    ocr_setting = result.scalar_one_or_none()
-    ocr_model = ocr_setting.value if ocr_setting else settings.default_ocr_model
+    ocr_model = await _get_db_setting(db, "ocr_model") or settings.default_ocr_model
+    monthly_budget_str = await _get_db_setting(db, "monthly_budget")
+    monthly_budget = float(monthly_budget_str) if monthly_budget_str else None
+    auto_cleanup = (await _get_db_setting(db, "auto_cleanup_enabled")) == "true"
+    last_cleanup = await _get_db_setting(db, "last_cleanup_at")
 
     return {
         "claude_model": settings.default_claude_model,
@@ -197,6 +216,9 @@ async def get_settings(
         "file_retention_days": settings.file_retention_days,
         "max_upload_size": format_file_size(settings.max_upload_size),
         "ocr_model": ocr_model,
+        "monthly_budget": monthly_budget,
+        "auto_cleanup_enabled": auto_cleanup,
+        "last_cleanup_at": last_cleanup,
     }
 
 
@@ -208,17 +230,11 @@ async def save_settings(
 ):
     """Save system settings"""
     if request.ocr_model is not None:
-        result = await db.execute(
-            select(AdminSettings).where(AdminSettings.key == "ocr_model")
-        )
-        setting = result.scalar_one_or_none()
-        if setting:
-            setting.value = request.ocr_model
-            setting.updated_at = datetime.utcnow()
-        else:
-            db.add(AdminSettings(key="ocr_model", value=request.ocr_model))
-        await db.commit()
-
+        await _set_db_setting(db, "ocr_model", request.ocr_model)
+    if request.monthly_budget is not None:
+        await _set_db_setting(db, "monthly_budget", str(request.monthly_budget))
+    if request.auto_cleanup_enabled is not None:
+        await _set_db_setting(db, "auto_cleanup_enabled", "true" if request.auto_cleanup_enabled else "false")
     return {"success": True, "message": "Settings saved"}
 
 
@@ -300,41 +316,140 @@ async def get_job_history(
     }
 
 
+def _job_cost(job) -> float:
+    """Return the most accurate cost for a job: real token cost > estimated."""
+    if isinstance(job.settings_used, dict):
+        real = job.settings_used.get("total_cost")
+        if real and float(real) > 0:
+            return float(real)
+    return job.estimated_cost or 0.0
+
+
 @router.get("/stats")
 async def get_stats(
     session_token: str = Depends(get_admin_session),
     db: AsyncSession = Depends(get_db)
 ):
     """Get system statistics"""
-    # Count jobs
     result = await db.execute(select(Job))
     all_jobs = result.scalars().all()
-    
+
     total_jobs = len(all_jobs)
     ppt_jobs = len([j for j in all_jobs if j.job_type == "ppt_translation"])
     excel_jobs = len([j for j in all_jobs if j.job_type == "excel_shipment"])
     completed_jobs = len([j for j in all_jobs if j.status == "completed"])
     failed_jobs = len([j for j in all_jobs if j.status == "failed"])
-    
-    total_cost = sum(j.estimated_cost for j in all_jobs if j.estimated_cost)
-    
-    # File storage info
+
+    total_cost = sum(_job_cost(j) for j in all_jobs)
+
+    # Current month cost
+    now = datetime.utcnow()
+    month_jobs = [j for j in all_jobs if j.created_at and j.created_at.year == now.year and j.created_at.month == now.month]
+    month_cost = sum(_job_cost(j) for j in month_jobs)
+
+    # Monthly budget from DB
+    monthly_budget_str = await _get_db_setting(db, "monthly_budget")
+    monthly_budget = float(monthly_budget_str) if monthly_budget_str else None
+
     upload_size = sum(f.stat().st_size for f in settings.upload_dir.glob("*") if f.is_file())
     output_size = sum(f.stat().st_size for f in settings.output_dir.glob("*") if f.is_file())
-    
+
     return {
         "total_jobs": total_jobs,
         "ppt_jobs": ppt_jobs,
         "excel_jobs": excel_jobs,
         "completed_jobs": completed_jobs,
         "failed_jobs": failed_jobs,
-        "total_cost": round(total_cost, 2),
+        "total_cost": round(total_cost, 4),
+        "month_cost": round(month_cost, 4),
+        "monthly_budget": monthly_budget,
         "storage": {
             "uploads": format_file_size(upload_size),
             "outputs": format_file_size(output_size),
             "total": format_file_size(upload_size + output_size)
         }
     }
+
+
+@router.get("/usage")
+async def get_usage(
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """Daily job counts and costs for the last 30 days"""
+    from datetime import timedelta
+    result = await db.execute(select(Job))
+    all_jobs = result.scalars().all()
+
+    cutoff = datetime.utcnow() - timedelta(days=30)
+    recent = [j for j in all_jobs if j.created_at and j.created_at >= cutoff]
+
+    # Build day buckets
+    days: dict[str, dict] = {}
+    for j in recent:
+        day = j.created_at.strftime("%Y-%m-%d")
+        if day not in days:
+            days[day] = {"date": day, "jobs": 0, "cost": 0.0}
+        days[day]["jobs"] += 1
+        days[day]["cost"] = round(days[day]["cost"] + _job_cost(j), 4)
+
+    # Fill missing days
+    today = datetime.utcnow().date()
+    for i in range(30):
+        d = (today - timedelta(days=29 - i)).isoformat()
+        if d not in days:
+            days[d] = {"date": d, "jobs": 0, "cost": 0.0}
+
+    return {"days": sorted(days.values(), key=lambda x: x["date"])}
+
+
+@router.get("/balance")
+async def get_balance(
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """Check API provider balances"""
+    import httpx
+
+    results = {}
+
+    # OpenRouter balance
+    or_key = await get_api_key("openrouter", db)
+    if or_key:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://openrouter.ai/api/v1/auth/key",
+                    headers={"Authorization": f"Bearer {or_key}"}
+                )
+            if resp.status_code == 200:
+                data = resp.json().get("data", {})
+                limit = data.get("limit")
+                usage = data.get("usage", 0)
+                remaining = (limit - usage) if limit else None
+                results["openrouter"] = {
+                    "configured": True,
+                    "usage": round(usage, 4),
+                    "limit": round(limit, 2) if limit else None,
+                    "remaining": round(remaining, 2) if remaining is not None else None,
+                    "label": data.get("label", ""),
+                    "is_free_tier": limit is None,
+                }
+            else:
+                results["openrouter"] = {"configured": True, "error": f"HTTP {resp.status_code}"}
+        except Exception as e:
+            results["openrouter"] = {"configured": True, "error": str(e)}
+    else:
+        results["openrouter"] = {"configured": False}
+
+    # Claude: no balance API — provide console link
+    claude_key = await get_api_key("claude", db)
+    results["claude"] = {
+        "configured": bool(claude_key),
+        "console_url": "https://console.anthropic.com/settings/billing",
+    }
+
+    return results
 
 
 # Excel Templates Management

@@ -24,16 +24,16 @@ function StepIndicator({ step }) {
           <div key={num} className="flex items-center">
             <div className="flex items-center space-x-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                done ? 'bg-green-500 text-white' : active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                done ? 'bg-green-500 text-white' : active ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
               }`}>
                 {done ? '✓' : num}
               </div>
-              <span className={`text-sm font-medium ${active ? 'text-blue-700' : done ? 'text-green-700' : 'text-gray-400'}`}>
+              <span className={`text-sm font-medium ${active ? 'text-blue-700' : done ? 'text-green-700' : 'text-gray-400 dark:text-gray-500'}`}>
                 {label}
               </span>
             </div>
             {i < steps.length - 1 && (
-              <div className={`mx-4 h-0.5 w-12 ${step > num ? 'bg-green-400' : 'bg-gray-200'}`} />
+              <div className={`mx-4 h-0.5 w-12 ${step > num ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
             )}
           </div>
         )
@@ -46,19 +46,19 @@ function StepIndicator({ step }) {
 function ConfirmModal({ onConfirm, onCancel, errorCount }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
         <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
+          <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">Blocking errors detected</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Blocking errors detected</h3>
         </div>
-        <p className="text-sm text-gray-600 mb-6">
-          There are <span className="font-semibold text-red-700">{errorCount} blocking error(s)</span> in your data.
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+          There are <span className="font-semibold text-red-700 dark:text-red-400">{errorCount} blocking error(s)</span> in your data.
           Are you sure you want to include rows with incomplete data in your final document? We recommend completing the missing fields and re-uploading.
         </p>
         <div className="flex space-x-3 justify-end">
-          <button onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+          <button onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
             Cancel & fix data
           </button>
           <button onClick={onConfirm} className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium">
@@ -85,8 +85,8 @@ const renderGroup = (groups, colorClass) =>
     <div key={idx} className={`text-xs ${colorClass}`}>
       <span className="font-medium">{issue}</span>
       {rows.length === 1
-        ? <span className="text-gray-500 ml-1">— Row {rows[0]}</span>
-        : <span className="text-gray-500 ml-1">
+        ? <span className="text-gray-500 dark:text-gray-400 ml-1">— Row {rows[0]}</span>
+        : <span className="text-gray-500 dark:text-gray-400 ml-1">
             — {rows.length} rows ({rows.slice(0, 6).join(', ')}{rows.length > 6 ? `, +${rows.length - 6} more` : ''})
           </span>
       }
@@ -249,7 +249,7 @@ export default function ExcelShipment() {
   const currentStep = !clientData ? 1 : generationSuccess ? 3 : 2
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 pb-28">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 pb-28">
       <div className="max-w-5xl mx-auto px-4">
 
         {/* Header */}
@@ -259,14 +259,14 @@ export default function ExcelShipment() {
               <span className="text-white font-bold text-xl">ES</span>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Excel Shipment Generator</h1>
-              <p className="text-gray-600">Generate market-ready shipment files from your client data</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Excel Shipment Generator</h1>
+              <p className="text-gray-600 dark:text-gray-300">Generate market-ready shipment files from your client data</p>
             </div>
           </div>
           {hasData && (
             <button
               onClick={clearAll}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
             >
               <X size={14} />
               <span>Clear</span>
@@ -278,24 +278,24 @@ export default function ExcelShipment() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start space-x-3">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 mb-6 flex items-start space-x-3">
             <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-red-800">{error}</p>
-              <button onClick={() => setError(null)} className="mt-1 text-xs text-red-600 hover:text-red-800">Dismiss</button>
+              <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+              <button onClick={() => setError(null)} className="mt-1 text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">Dismiss</button>
             </div>
           </div>
         )}
 
         {/* Success banner */}
         {generationSuccess && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center space-x-3">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-6 flex items-center space-x-3">
             <span className="text-2xl">✅</span>
             <div>
-              <p className="text-sm font-semibold text-green-800">
+              <p className="text-sm font-semibold text-green-800 dark:text-green-400">
                 {generationSuccess.market} shipment file generated successfully!
               </p>
-              <p className="text-xs text-green-700 mt-0.5">
+              <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
                 Your download should start automatically.{' '}
                 <a
                   href={`${API_URL}/api/excel/download/${generationSuccess.jobId}`}
@@ -309,14 +309,14 @@ export default function ExcelShipment() {
         )}
 
         {/* Step 1: Upload */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">1. Upload Client Data</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">1. Upload Client Data</h2>
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
             onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
             onDrop={handleDrop}
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+              isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
             } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <input
@@ -328,20 +328,20 @@ export default function ExcelShipment() {
               id="file-upload"
             />
             <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
-              <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
-              <span className="text-sm text-gray-600 mb-1">
+              <span className="text-sm text-gray-600 dark:text-gray-300 mb-1">
                 {isDragging ? 'Drop file here' : 'Drag & drop Excel file here'}
               </span>
-              <span className="text-xs text-gray-400">or click to browse (.xlsx)</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">or click to browse (.xlsx)</span>
             </label>
           </div>
 
           {clientData && (
             <div className="mt-3 flex items-center justify-between text-sm">
               {uploadedFileName && (
-                <p className="text-gray-600 flex items-center">
+                <p className="text-gray-600 dark:text-gray-300 flex items-center">
                   <svg className="w-4 h-4 mr-1 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
                     <path d="M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
@@ -349,33 +349,33 @@ export default function ExcelShipment() {
                   <span className="font-medium">{uploadedFileName}</span>
                 </p>
               )}
-              <p className="text-green-600 font-medium">✓ {clientData.total_records} records loaded</p>
+              <p className="text-green-600 dark:text-green-400 font-medium">✓ {clientData.total_records} records loaded</p>
             </div>
           )}
         </div>
 
         {/* Data preview (collapsible) */}
         {dataPreview && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 overflow-hidden">
             <button
               onClick={() => setShowPreview(v => !v)}
-              className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-semibold text-gray-700">Data Preview</span>
-                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Data Preview</span>
+                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
                   first {dataPreview.rows.length} rows of {clientData?.total_records}
                 </span>
               </div>
-              {showPreview ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+              {showPreview ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
             </button>
             {showPreview && (
-              <div className="overflow-x-auto border-t border-gray-100">
+              <div className="overflow-x-auto border-t border-gray-100 dark:border-gray-700">
                 <table className="text-xs w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       {dataPreview.columns.map(col => (
-                        <th key={col} className="px-3 py-2 text-left text-gray-600 font-semibold whitespace-nowrap border-r border-gray-100 last:border-0">
+                        <th key={col} className="px-3 py-2 text-left text-gray-600 dark:text-gray-300 font-semibold whitespace-nowrap border-r border-gray-100 dark:border-gray-700 last:border-0">
                           {col}
                         </th>
                       ))}
@@ -383,10 +383,10 @@ export default function ExcelShipment() {
                   </thead>
                   <tbody>
                     {dataPreview.rows.map((row, i) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
                         {dataPreview.columns.map(col => (
-                          <td key={col} className="px-3 py-2 text-gray-700 border-r border-gray-100 last:border-0 max-w-[160px] truncate">
-                            {row[col] ?? <span className="text-gray-300 italic">—</span>}
+                          <td key={col} className="px-3 py-2 text-gray-700 dark:text-gray-200 border-r border-gray-100 dark:border-gray-700 last:border-0 max-w-[160px] truncate">
+                            {row[col] ?? <span className="text-gray-300 dark:text-gray-600 italic">—</span>}
                           </td>
                         ))}
                       </tr>
@@ -400,8 +400,8 @@ export default function ExcelShipment() {
 
         {/* Step 2: Market selection */}
         {clientData && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">2. Select Market</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">2. Select Market</h2>
             <div className="flex gap-3">
               {MARKETS.map(({ code, label, flag }) => {
                 const isAvailable = availableMarkets.length === 0 || availableMarkets.includes(code)
@@ -418,8 +418,8 @@ export default function ExcelShipment() {
                       isSelected
                         ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
                         : isAvailable
-                        ? 'border-gray-200 hover:border-gray-300 text-gray-700 hover:bg-gray-50'
-                        : 'border-gray-100 text-gray-300 cursor-not-allowed'
+                        ? 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        : 'border-gray-100 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed'
                     }`}
                   >
                     <span className="text-2xl block mb-1">{flag}</span>
@@ -428,10 +428,10 @@ export default function ExcelShipment() {
                       <span className="block text-xs font-normal mt-1 text-blue-600">{count} rows detected</span>
                     )}
                     {isAutoDetected && (
-                      <span className="block text-xs font-normal mt-0.5 text-green-600">Auto-detected</span>
+                      <span className="block text-xs font-normal mt-0.5 text-green-600 dark:text-green-400">Auto-detected</span>
                     )}
                     {!isAvailable && (
-                      <span className="block text-xs font-normal mt-0.5 text-gray-400">No template</span>
+                      <span className="block text-xs font-normal mt-0.5 text-gray-400 dark:text-gray-500">No template</span>
                     )}
                   </button>
                 )
@@ -440,38 +440,38 @@ export default function ExcelShipment() {
 
             {/* Column mapping (collapsible) */}
             {currentMapping && (
-              <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+              <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setShowMapping(v => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left bg-gray-50 hover:bg-gray-100 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 text-left bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-semibold text-gray-600">Column Mapping</span>
-                    <span className="text-xs bg-white border border-gray-200 text-gray-500 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Column Mapping</span>
+                    <span className="text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
                       {Math.round(currentMapping.coverage * 100)}% coverage
                     </span>
                     {currentMapping.unmapped_client_cols?.length > 0 && (
-                      <span className="text-xs text-orange-600">
+                      <span className="text-xs text-orange-600 dark:text-orange-400">
                         · {currentMapping.unmapped_client_cols.length} unused column(s)
                       </span>
                     )}
                   </div>
-                  {showMapping ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                  {showMapping ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                 </button>
                 {showMapping && (
                   <div className="p-4 grid grid-cols-2 gap-2">
                     {currentMapping.mapped.map(({ template, source, found }, i) => (
-                      <div key={i} className={`flex items-center justify-between text-xs px-3 py-2 rounded-lg ${found ? 'bg-green-50' : 'bg-red-50'}`}>
-                        <span className={`font-mono font-semibold ${found ? 'text-green-800' : 'text-red-700'}`}>
+                      <div key={i} className={`flex items-center justify-between text-xs px-3 py-2 rounded-lg ${found ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                        <span className={`font-mono font-semibold ${found ? 'text-green-800 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
                           {template}
                         </span>
-                        <span className={`${found ? 'text-green-600' : 'text-red-400 italic'}`}>
+                        <span className={`${found ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-500 italic'}`}>
                           {found ? `← ${source}` : 'not found'}
                         </span>
                       </div>
                     ))}
                     {currentMapping.unmapped_client_cols?.length > 0 && (
-                      <div className="col-span-2 mt-2 text-xs text-gray-400">
+                      <div className="col-span-2 mt-2 text-xs text-gray-400 dark:text-gray-500">
                         <span className="font-medium">Unused columns: </span>
                         {currentMapping.unmapped_client_cols.join(', ')}
                       </div>
@@ -486,48 +486,48 @@ export default function ExcelShipment() {
 
         {/* Validation Report */}
         {report && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
               <span className="mr-2">📋</span>
               Data Validation Report
             </h2>
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <div className={`px-4 py-3 flex items-center justify-between ${
-                hasBlockingErrors ? 'bg-red-50' : hasWarnings ? 'bg-orange-50' : 'bg-green-50'
+                hasBlockingErrors ? 'bg-red-50 dark:bg-red-900/20' : hasWarnings ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-green-50 dark:bg-green-900/20'
               }`}>
                 <div className="flex items-center space-x-3">
-                  <span className="font-semibold text-gray-800">
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">
                     {MARKETS.find(m => m.code === selectedMarket)?.flag}{' '}
                     {MARKETS.find(m => m.code === selectedMarket)?.label}
                   </span>
                   <div className="flex space-x-2">
                     {hasBlockingErrors && (
-                      <span className="text-xs bg-red-200 text-red-800 px-2 py-0.5 rounded font-medium">
+                      <span className="text-xs bg-red-200 dark:bg-red-800/50 text-red-800 dark:text-red-300 px-2 py-0.5 rounded font-medium">
                         ❌ {report.blocking_errors.length} blocking
                       </span>
                     )}
                     {hasWarnings && (
-                      <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded font-medium">
+                      <span className="text-xs bg-orange-200 dark:bg-orange-800/50 text-orange-800 dark:text-orange-300 px-2 py-0.5 rounded font-medium">
                         ⚠️ {report.warnings.length} warnings
                       </span>
                     )}
                     {hasValidations && (
-                      <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded font-medium">
+                      <span className="text-xs bg-yellow-200 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-300 px-2 py-0.5 rounded font-medium">
                         🔎 {report.validations.length} suspicious
                       </span>
                     )}
                     {!hasAnyIssue && (
-                      <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded font-medium">
+                      <span className="text-xs bg-green-200 dark:bg-green-800/50 text-green-800 dark:text-green-300 px-2 py-0.5 rounded font-medium">
                         ✅ All valid
                       </span>
                     )}
                   </div>
                 </div>
                 <span className={`text-sm font-semibold ${
-                  report.total_rows > 0 && (report.valid_rows / report.total_rows) >= 0.9 ? 'text-green-600'
-                  : report.total_rows > 0 && (report.valid_rows / report.total_rows) >= 0.7 ? 'text-orange-600'
-                  : 'text-red-600'
+                  report.total_rows > 0 && (report.valid_rows / report.total_rows) >= 0.9 ? 'text-green-600 dark:text-green-400'
+                  : report.total_rows > 0 && (report.valid_rows / report.total_rows) >= 0.7 ? 'text-orange-600 dark:text-orange-400'
+                  : 'text-red-600 dark:text-red-400'
                 }`}>
                   {report.valid_rows}/{report.total_rows} valid
                 </span>
@@ -536,21 +536,21 @@ export default function ExcelShipment() {
               {hasAnyIssue && (
                 <div className="p-4 space-y-3">
                   {hasBlockingErrors && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-3">
-                      <p className="font-semibold text-red-900 text-sm mb-2">❌ Blocking Errors</p>
-                      <div className="space-y-1">{renderGroup(groupByIssue(report.blocking_errors), 'text-red-800')}</div>
+                    <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-3">
+                      <p className="font-semibold text-red-900 dark:text-red-300 text-sm mb-2">❌ Blocking Errors</p>
+                      <div className="space-y-1">{renderGroup(groupByIssue(report.blocking_errors), 'text-red-800 dark:text-red-400')}</div>
                     </div>
                   )}
                   {hasWarnings && (
-                    <div className="bg-orange-50 border-l-4 border-orange-500 p-3">
-                      <p className="font-semibold text-orange-900 text-sm mb-2">⚠️ Warnings</p>
-                      <div className="space-y-1">{renderGroup(groupByIssue(report.warnings), 'text-orange-800')}</div>
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-3">
+                      <p className="font-semibold text-orange-900 dark:text-orange-300 text-sm mb-2">⚠️ Warnings</p>
+                      <div className="space-y-1">{renderGroup(groupByIssue(report.warnings), 'text-orange-800 dark:text-orange-400')}</div>
                     </div>
                   )}
                   {hasValidations && (
-                    <div className="bg-yellow-50 border-l-4 border-yellow-500 p-3">
-                      <p className="font-semibold text-yellow-900 text-sm mb-2">🔎 Suspicious Data</p>
-                      <div className="space-y-1">{renderGroup(groupByIssue(report.validations), 'text-yellow-800')}</div>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-3">
+                      <p className="font-semibold text-yellow-900 dark:text-yellow-300 text-sm mb-2">🔎 Suspicious Data</p>
+                      <div className="space-y-1">{renderGroup(groupByIssue(report.validations), 'text-yellow-800 dark:text-yellow-400')}</div>
                     </div>
                   )}
                 </div>
@@ -572,27 +572,27 @@ export default function ExcelShipment() {
 
       {/* Sticky action bar */}
       {clientData && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 shadow-xl">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700 shadow-xl">
           <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
 
             {/* Left: context summary */}
-            <div className="text-base text-gray-600 flex items-center gap-4 min-w-0">
+            <div className="text-base text-gray-600 dark:text-gray-300 flex items-center gap-4 min-w-0">
               {generationSuccess ? (
-                <span className="font-semibold text-green-700">✓ File generated successfully</span>
+                <span className="font-semibold text-green-700 dark:text-green-400">✓ File generated successfully</span>
               ) : selectedMarket ? (
                 <>
-                  <span className="font-semibold text-gray-800">
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">
                     {MARKETS.find(m => m.code === selectedMarket)?.flag}{' '}
                     {MARKETS.find(m => m.code === selectedMarket)?.label}
                   </span>
-                  <span className="text-gray-300">|</span>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
                   <span>{clientData.total_records} rows</span>
                   {hasBlockingErrors && (
-                    <span className="text-red-600 font-medium flex-shrink-0">⚠️ {report.blocking_errors.length} blocking error{report.blocking_errors.length > 1 ? 's' : ''}</span>
+                    <span className="text-red-600 dark:text-red-400 font-medium flex-shrink-0">⚠️ {report.blocking_errors.length} blocking error{report.blocking_errors.length > 1 ? 's' : ''}</span>
                   )}
                 </>
               ) : (
-                <span className="text-gray-400">Select a market to generate</span>
+                <span className="text-gray-400 dark:text-gray-500">Select a market to generate</span>
               )}
             </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../contexts/AppContext'
-import { Lock, Key, Trash2, Settings, Upload, FileSpreadsheet } from 'lucide-react'
+import { Lock, Key, Trash2, Settings, Upload, FileSpreadsheet, TrendingUp, Wallet } from 'lucide-react'
 import axios from 'axios'
 import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
@@ -25,16 +25,25 @@ export default function Admin() {
   const [ocrModelSaved, setOcrModelSaved] = useState(false)
   const [modelTestResult, setModelTestResult] = useState(null) // { valid, message }
   const [modelTesting, setModelTesting] = useState(false)
-  
+
+  const [usage, setUsage] = useState([]) // daily usage data
+  const [monthlyBudget, setMonthlyBudget] = useState('')
+  const [budgetSaving, setBudgetSaving] = useState(false)
+  const [autoCleanup, setAutoCleanup] = useState(false)
+  const [balance, setBalance] = useState(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
+
   useEffect(() => {
     if (isAdmin) {
       loadApiKeys()
       loadStats()
       loadOcrModel()
       loadTemplates()
+      loadUsage()
+      loadBalance()
     }
   }, [isAdmin])
-  
+
   const handleLogin = async (e) => {
     e.preventDefault()
     const result = await login(password)
@@ -42,7 +51,7 @@ export default function Admin() {
       setLoginError(result.error)
     }
   }
-  
+
   const loadApiKeys = async () => {
     try {
       const response = await axios.get('/api/admin/api-keys', {
@@ -53,7 +62,7 @@ export default function Admin() {
       console.error('Error loading API keys:', error)
     }
   }
-  
+
   const loadStats = async () => {
     try {
       const response = await axios.get('/api/admin/stats', {
@@ -73,6 +82,8 @@ export default function Admin() {
       if (response.data.ocr_model) {
         setOcrModel(response.data.ocr_model)
       }
+      if (response.data.monthly_budget != null) setMonthlyBudget(String(response.data.monthly_budget))
+      if (response.data.auto_cleanup_enabled != null) setAutoCleanup(response.data.auto_cleanup_enabled)
     } catch (error) {
       // Endpoint may not exist yet, use default
       console.log('OCR model settings not available yet')
@@ -102,11 +113,11 @@ export default function Admin() {
       setModelTesting(false)
     }
   }
-  
+
   const handleAddApiKey = async (provider) => {
     const key = prompt(`Enter ${provider} API key:`)
     if (!key) return
-    
+
     try {
       await axios.post('/api/admin/api-keys', {
         provider,
@@ -115,17 +126,17 @@ export default function Admin() {
       }, {
         headers: getAuthHeader()
       })
-      
+
       loadApiKeys()
       alert('API key saved successfully')
     } catch (error) {
       alert('Error saving API key: ' + error.message)
     }
   }
-  
+
   const handleChangePassword = async (e) => {
     e.preventDefault()
-    
+
     try {
       await axios.post('/api/admin/change-password', {
         current_password: newPassword.current,
@@ -133,14 +144,14 @@ export default function Admin() {
       }, {
         headers: getAuthHeader()
       })
-      
+
       alert('Password changed successfully')
       setNewPassword({ current: '', new: '' })
     } catch (error) {
       alert('Error changing password: ' + error.message)
     }
   }
-  
+
   const loadTemplates = async () => {
     try {
       const res = await axios.get('/api/admin/excel/templates', { headers: getAuthHeader() })
@@ -206,30 +217,62 @@ export default function Admin() {
       alert('Error cleaning up files: ' + (error.response?.data?.detail || error.message))
     }
   }
-  
+
+  const loadUsage = async () => {
+    try {
+      const res = await axios.get('/api/admin/usage', { headers: getAuthHeader() })
+      setUsage(res.data.days || [])
+    } catch (e) { console.error(e) }
+  }
+
+  const loadBalance = async () => {
+    setBalanceLoading(true)
+    try {
+      const res = await axios.get('/api/admin/balance', { headers: getAuthHeader() })
+      setBalance(res.data)
+    } catch (e) { console.error(e) }
+    finally { setBalanceLoading(false) }
+  }
+
+  const handleSaveBudget = async () => {
+    setBudgetSaving(true)
+    try {
+      await axios.post('/api/admin/settings', { monthly_budget: parseFloat(monthlyBudget) || null }, { headers: getAuthHeader() })
+      loadStats()
+    } catch (e) { alert(e.response?.data?.detail || e.message) }
+    finally { setBudgetSaving(false) }
+  }
+
+  const handleToggleAutoCleanup = async (val) => {
+    setAutoCleanup(val)
+    try {
+      await axios.post('/api/admin/settings', { auto_cleanup_enabled: val }, { headers: getAuthHeader() })
+    } catch (e) { console.error(e) }
+  }
+
   if (!isAdmin) {
     return (
       <div className="max-w-md mx-auto mt-20">
-        <div className="bg-white rounded-lg shadow p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8">
           <div className="flex justify-center mb-6">
-            <Lock className="w-12 h-12 text-gray-400" />
+            <Lock className="w-12 h-12 text-gray-400 dark:text-gray-500" />
           </div>
-          
-          <h2 className="text-2xl font-bold text-center mb-6">Admin Login</h2>
-          
+
+          <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-gray-100">Admin Login</h2>
+
           <form onSubmit={handleLogin}>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter admin password"
-              className="w-full border rounded px-4 py-2 mb-4"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 mb-4 dark:bg-gray-700 dark:text-gray-100"
             />
-            
+
             {loginError && (
               <p className="text-sm text-red-600 mb-4">{loginError}</p>
             )}
-            
+
             <button
               type="submit"
               className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700"
@@ -237,15 +280,15 @@ export default function Admin() {
               Login
             </button>
           </form>
-          
-          <p className="text-xs text-center text-gray-500 mt-4">
+
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
             Default password: admin123
           </p>
         </div>
       </div>
     )
   }
-  
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="mb-8 flex items-center space-x-4">
@@ -253,54 +296,211 @@ export default function Admin() {
           <span className="text-white font-bold text-xl">AP</span>
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-          <p className="text-gray-600">System configuration and monitoring</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Admin Panel</h1>
+          <p className="text-gray-600 dark:text-gray-300">System configuration and monitoring</p>
         </div>
       </div>
-      
+
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600">Total Jobs</p>
-            <p className="text-3xl font-bold">{stats.total_jobs}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <p className="text-sm text-gray-600 dark:text-gray-300">Total Jobs</p>
+            <p className="text-3xl font-bold dark:text-gray-100">{stats.total_jobs}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600">Completed</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <p className="text-sm text-gray-600 dark:text-gray-300">Completed</p>
             <p className="text-3xl font-bold text-green-600">{stats.completed_jobs}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600">Total Cost</p>
-            <p className="text-3xl font-bold">${stats.total_cost}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <p className="text-sm text-gray-600 dark:text-gray-300">Total Cost</p>
+            <p className="text-3xl font-bold dark:text-gray-100">${stats.total_cost}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600">Storage</p>
-            <p className="text-3xl font-bold">{stats.storage.total}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <p className="text-sm text-gray-600 dark:text-gray-300">Storage</p>
+            <p className="text-3xl font-bold dark:text-gray-100">{stats.storage.total}</p>
           </div>
         </div>
       )}
-      
+
+      {/* Usage & Budget */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center space-x-2">
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Usage & Budget</h2>
+          </div>
+          {/* Monthly budget input */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Monthly budget $</span>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={monthlyBudget}
+              onChange={e => setMonthlyBudget(e.target.value)}
+              placeholder="e.g. 20"
+              className="w-24 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-gray-100"
+            />
+            <button
+              onClick={handleSaveBudget}
+              disabled={budgetSaving}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {budgetSaving ? '...' : 'Set'}
+            </button>
+          </div>
+        </div>
+
+        {/* Current month budget bar */}
+        {stats && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-gray-600 dark:text-gray-400">This month</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                ${stats.month_cost?.toFixed(4) || '0.0000'}
+                {stats.monthly_budget ? ` / $${stats.monthly_budget.toFixed(2)}` : ''}
+              </span>
+            </div>
+            {stats.monthly_budget ? (
+              (() => {
+                const pct = Math.min(100, (stats.month_cost / stats.monthly_budget) * 100)
+                const color = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                return (
+                  <>
+                    <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    {pct >= 80 && (
+                      <p className={`mt-1 text-xs ${pct >= 90 ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                        {pct >= 90 ? `⚠️ Budget almost exhausted (${pct.toFixed(0)}%)` : `⚡ ${pct.toFixed(0)}% of monthly budget used`}
+                      </p>
+                    )}
+                  </>
+                )
+              })()
+            ) : (
+              <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div className="h-full rounded-full bg-blue-400" style={{ width: '100%' }} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 30-day bar chart */}
+        {usage.length > 0 && (() => {
+          const maxJobs = Math.max(...usage.map(d => d.jobs), 1)
+          const last14 = usage.slice(-14)
+          return (
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Jobs per day (last 14 days)</p>
+              <div className="flex items-end gap-1 h-16">
+                {last14.map((d, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+                    <div
+                      className="w-full rounded-t bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-400 transition-all"
+                      style={{ height: `${Math.max(4, (d.jobs / maxJobs) * 56)}px` }}
+                    />
+                    <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-1.5 py-0.5 whitespace-nowrap z-10">
+                      {d.date.slice(5)}: {d.jobs} job{d.jobs !== 1 ? 's' : ''}, ${d.cost.toFixed(4)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <span>{last14[0]?.date.slice(5)}</span>
+                <span>{last14[last14.length - 1]?.date.slice(5)}</span>
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* API Balance */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <Wallet className="w-5 h-5 text-violet-600" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">API Balance</h2>
+          </div>
+          <button
+            onClick={loadBalance}
+            disabled={balanceLoading}
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+          >
+            {balanceLoading ? 'Checking…' : 'Refresh'}
+          </button>
+        </div>
+
+        {!balance ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500">Click Refresh to check balances.</p>
+        ) : (
+          <div className="space-y-3">
+            {/* OpenRouter */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">OpenRouter</p>
+                {balance.openrouter?.configured ? (
+                  balance.openrouter.error ? (
+                    <p className="text-xs text-red-500">{balance.openrouter.error}</p>
+                  ) : balance.openrouter.is_free_tier ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Free tier — no credit limit</p>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Used ${balance.openrouter.usage?.toFixed(4)} / ${balance.openrouter.limit?.toFixed(2)}
+                    </p>
+                  )
+                ) : (
+                  <p className="text-xs text-gray-400">Not configured</p>
+                )}
+              </div>
+              {balance.openrouter?.configured && !balance.openrouter.error && !balance.openrouter.is_free_tier && (
+                <span className={`text-sm font-semibold ${(balance.openrouter.remaining || 0) < 1 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
+                  ${balance.openrouter.remaining?.toFixed(2)} left
+                </span>
+              )}
+            </div>
+
+            {/* Claude */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Claude (Anthropic)</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">No public balance API available</p>
+              </div>
+              <a
+                href={balance.claude?.console_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                View billing →
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* API Keys */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <div className="flex items-center space-x-2 mb-4">
           <Key className="w-5 h-5" />
-          <h2 className="text-lg font-semibold">API Keys</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">API Keys</h2>
         </div>
-        
+
         <div className="space-y-4">
           {['claude', 'openrouter'].map(provider => {
             const key = apiKeys.find(k => k.provider === provider)
             return (
-              <div key={provider} className="flex items-center justify-between border-b pb-4">
+              <div key={provider} className="flex items-center justify-between border-b border-gray-200 dark:border-gray-600 pb-4">
                 <div>
-                  <p className="font-medium capitalize">{provider}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="font-medium capitalize text-gray-900 dark:text-gray-100">{provider}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {provider === 'openrouter' ? 'Used for OCR Free mode too' : 'Claude Haiku & Sonnet 4'}
                   </p>
                   {key ? (
-                    <p className="text-sm text-gray-600 font-mono">{key.api_key}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 font-mono">{key.api_key}</p>
                   ) : (
-                    <p className="text-sm text-gray-400">Not configured</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Not configured</p>
                   )}
                 </div>
                 <button
@@ -316,18 +516,18 @@ export default function Admin() {
       </div>
 
       {/* OCR Free Model Settings */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <div className="flex items-center space-x-2 mb-4">
           <Settings className="w-5 h-5" />
-          <h2 className="text-lg font-semibold">OCR Free Mode — Model</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">OCR Free Mode — Model</h2>
         </div>
 
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
           Model used for the free OCR translation mode. Must be a text model available on{' '}
-          <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+          <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
             openrouter.ai/models
           </a>
-          . Free models are marked with <code className="bg-gray-100 px-1 rounded">:free</code>.
+          . Free models are marked with <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">:free</code>.
         </p>
 
         <div className="flex gap-3">
@@ -336,12 +536,12 @@ export default function Admin() {
             value={ocrModel}
             onChange={(e) => { setOcrModel(e.target.value); setModelTestResult(null) }}
             placeholder="google/gemma-3-12b-it:free"
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-700 dark:text-gray-100"
           />
           <button
             onClick={handleTestModel}
             disabled={modelTesting || !ocrModel.trim()}
-            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             {modelTesting ? 'Testing…' : 'Test'}
           </button>
@@ -363,23 +563,23 @@ export default function Admin() {
           </p>
         )}
 
-        <div className="mt-3 text-xs text-gray-500 space-y-1">
+        <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 space-y-1">
           <p>💡 <strong>Recommended free models (text only, good translation):</strong></p>
           <ul className="ml-4 space-y-1 font-mono">
             <li
-              className="cursor-pointer hover:text-blue-600"
+              className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
               onClick={() => { setOcrModel('openrouter/free'); setModelTestResult(null) }}
             >
               openrouter/free ← recommended (auto-selects best available)
             </li>
             <li
-              className="cursor-pointer hover:text-blue-600"
+              className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
               onClick={() => { setOcrModel('google/gemma-3-12b-it:free'); setModelTestResult(null) }}
             >
               google/gemma-3-12b-it:free
             </li>
             <li
-              className="cursor-pointer hover:text-blue-600"
+              className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
               onClick={() => { setOcrModel('meta-llama/llama-3.1-8b-instruct:free'); setModelTestResult(null) }}
             >
               meta-llama/llama-3.1-8b-instruct:free
@@ -388,25 +588,25 @@ export default function Admin() {
           <p className="mt-2">⚠️ Click a model name to select it, test it, then Save.</p>
         </div>
       </div>
-      
+
       {/* Change Password */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Change Password</h2>
-        
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Change Password</h2>
+
         <form onSubmit={handleChangePassword} className="max-w-md">
           <input
             type="password"
             value={newPassword.current}
             onChange={(e) => setNewPassword(prev => ({ ...prev, current: e.target.value }))}
             placeholder="Current password"
-            className="w-full border rounded px-4 py-2 mb-3"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 mb-3 dark:bg-gray-700 dark:text-gray-100"
           />
           <input
             type="password"
             value={newPassword.new}
             onChange={(e) => setNewPassword(prev => ({ ...prev, new: e.target.value }))}
             placeholder="New password"
-            className="w-full border rounded px-4 py-2 mb-3"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 mb-3 dark:bg-gray-700 dark:text-gray-100"
           />
           <button
             type="submit"
@@ -416,37 +616,37 @@ export default function Admin() {
           </button>
         </form>
       </div>
-      
+
       {/* Excel Templates */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <div className="flex items-center space-x-2 mb-5">
           <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-          <h2 className="text-lg font-semibold">Excel Templates</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Excel Templates</h2>
         </div>
 
         {/* Upload form */}
-        <div className="border border-dashed border-gray-300 rounded-lg p-4 mb-5">
-          <p className="text-sm font-medium text-gray-700 mb-3">Upload a new template</p>
+        <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 mb-5">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Upload a new template</p>
           <div className="flex gap-3 items-end flex-wrap">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Market code</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Market code</label>
               <input
                 type="text"
                 value={templateMarket}
                 onChange={e => setTemplateMarket(e.target.value.toUpperCase().slice(0, 2))}
                 placeholder="ES"
                 maxLength={2}
-                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
               />
             </div>
             <div className="flex-1 min-w-48">
-              <label className="block text-xs text-gray-500 mb-1">Template file (.xlsx)</label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Template file (.xlsx)</label>
               <input
                 ref={templateInputRef}
                 type="file"
                 accept=".xlsx"
                 onChange={e => setTemplateFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 dark:file:bg-emerald-900/20 file:text-emerald-700 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-900/30 cursor-pointer"
               />
             </div>
             <button
@@ -467,29 +667,29 @@ export default function Admin() {
 
         {/* Templates list */}
         {Object.keys(templates).length === 0 ? (
-          <p className="text-sm text-gray-400">No templates found.</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">No templates found.</p>
         ) : (
           <div className="space-y-4">
             {Object.entries(templates).sort(([a], [b]) => a.localeCompare(b)).map(([market, versions]) => (
               <div key={market}>
-                <p className="text-sm font-semibold text-gray-700 mb-2">
-                  {market} <span className="text-gray-400 font-normal">({versions.length} version{versions.length > 1 ? 's' : ''})</span>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  {market} <span className="text-gray-400 dark:text-gray-500 font-normal">({versions.length} version{versions.length > 1 ? 's' : ''})</span>
                 </p>
-                <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                   {versions.map((tpl, idx) => (
-                    <div key={tpl.timestamp} className={`flex items-center justify-between px-4 py-2.5 ${idx === 0 ? 'bg-emerald-50' : 'bg-white'}`}>
+                    <div key={tpl.timestamp} className={`flex items-center justify-between px-4 py-2.5 ${idx === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-gray-800'}`}>
                       <div className="flex items-center space-x-3">
                         {idx === 0 && (
-                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+                          <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Active</span>
                         )}
-                        <span className="text-sm font-mono text-gray-600">{tpl.filename}</span>
-                        <span className="text-xs text-gray-400">{tpl.size}</span>
+                        <span className="text-sm font-mono text-gray-600 dark:text-gray-300">{tpl.filename}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{tpl.size}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         {idx !== 0 && (
                           <button
                             onClick={() => handleSetActive(market, tpl.timestamp)}
-                            className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50"
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-gray-700"
                           >
                             Set active
                           </button>
@@ -497,7 +697,7 @@ export default function Admin() {
                         <button
                           onClick={() => handleDeleteTemplate(market, tpl.timestamp)}
                           disabled={versions.length <= 1}
-                          className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           Delete
                         </button>
@@ -512,20 +712,31 @@ export default function Admin() {
       </div>
 
       {/* File Cleanup */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-lg font-semibold">File Cleanup</h2>
-            <p className="text-sm text-gray-600">Delete files older than 30 days</p>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">File Cleanup</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Delete uploaded and output files older than 30 days
+            </p>
           </div>
           <button
             onClick={handleCleanup}
             className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
           >
             <Trash2 size={18} />
-            <span>Cleanup</span>
+            <span>Run now</span>
           </button>
         </div>
+        <label className="flex items-center space-x-2 mt-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoCleanup}
+            onChange={e => handleToggleAutoCleanup(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-blue-600"
+          />
+          <span className="text-sm text-gray-600 dark:text-gray-400">Enable automatic daily cleanup</span>
+        </label>
       </div>
     </div>
   )

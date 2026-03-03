@@ -425,7 +425,7 @@ export default function PptTranslation() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 pb-28">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 pb-28">
       <div className="max-w-5xl mx-auto px-4">
 
         {/* Header */}
@@ -435,14 +435,14 @@ export default function PptTranslation() {
               <span className="text-white font-bold text-xl">PT</span>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">PowerPoint Translation</h1>
-              <p className="text-gray-600">Professional automated translation service</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">PowerPoint Translation</h1>
+              <p className="text-gray-600 dark:text-gray-300">Professional automated translation service</p>
             </div>
           </div>
           {hasData && !processing && (
             <button
               onClick={clearAll}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 transition-colors"
             >
               <X size={14} />
               <span>Clear</span>
@@ -452,22 +452,22 @@ export default function PptTranslation() {
 
         {/* Error */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 flex items-start">
             <svg className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
-            <p className="ml-3 text-sm text-red-800 flex-1">{error}</p>
+            <p className="ml-3 text-sm text-red-800 dark:text-red-300 flex-1">{error}</p>
             <button onClick={() => setError(null)} className="ml-3 text-red-400 hover:text-red-600 text-lg leading-none">×</button>
           </div>
         )}
 
         {/* Retry mode banner */}
         {isRetryMode && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center space-x-3">
+          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 flex items-center space-x-3">
             <span className="text-2xl">🔄</span>
             <div>
-              <p className="text-sm font-semibold text-blue-800">Retry mode active</p>
-              <p className="text-xs text-blue-700 mt-0.5">
+              <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Retry mode active</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
                 Only the {selectedCount} failed slide{selectedCount !== 1 ? 's' : ''} are selected.
                 Start translation to retry them — then use Merge to combine with the original output.
               </p>
@@ -479,11 +479,11 @@ export default function PptTranslation() {
         <div className={`grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 mb-6 ${isDimmed}`}>
 
           {/* LEFT: Upload */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Presentation</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Upload Presentation</h2>
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                file ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                file ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
@@ -498,13 +498,13 @@ export default function PptTranslation() {
                 </div>
                 {file ? (
                   <>
-                    <p className="text-base font-medium text-gray-900 mb-1">{file.name}</p>
-                    <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(1)} MB · {slides.length} slides · Click to change</p>
+                    <p className="text-base font-medium text-gray-900 dark:text-gray-100 mb-1">{file.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{(file.size / 1024 / 1024).toFixed(1)} MB · {slides.length} slides · Click to change</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-base font-medium text-gray-900 mb-1">Click or drag & drop</p>
-                    <p className="text-sm text-gray-500">.pptx files only · max 100MB</p>
+                    <p className="text-base font-medium text-gray-900 dark:text-gray-100 mb-1">Click or drag & drop</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">.pptx files only · max 100MB</p>
                   </>
                 )}
               </div>
@@ -512,13 +512,13 @@ export default function PptTranslation() {
           </div>
 
           {/* RIGHT: Settings */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Translation Settings</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Translation Settings</h2>
             <div className="space-y-4">
 
               {/* A: Model cards */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Translation Model</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Translation Model</label>
                 <div className="grid grid-cols-3 gap-2">
                   {MODEL_OPTIONS.map(opt => (
                     <button
@@ -526,14 +526,14 @@ export default function PptTranslation() {
                       onClick={() => handleModelSelect(opt.key)}
                       className={`p-3 rounded-lg border-2 text-left transition-all ${
                         modelKey === opt.key
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                       }`}
                     >
-                      <p className="text-xs font-semibold text-gray-900 mb-1">{opt.name}</p>
+                      <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">{opt.name}</p>
                       <p className={`text-xs font-medium mb-1 ${opt.price === 'Free' ? 'text-green-600' : 'text-blue-600'}`}>{opt.price}</p>
-                      <span className="text-xs text-gray-500 block">{opt.quality}</span>
-                      <span className="text-xs text-gray-400">{opt.speed}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 block">{opt.quality}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{opt.speed}</span>
                     </button>
                   ))}
                 </div>
@@ -541,17 +541,17 @@ export default function PptTranslation() {
 
               {/* B: Languages with swap */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Languages</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Languages</label>
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <div className="flex items-center mb-1 space-x-1">
-                      <span className="text-xs text-gray-500">Source</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Source</span>
                       {detectedLang && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Auto-detected</span>}
                     </div>
                     <select
                       value={settings.source_lang}
                       onChange={(e) => { setDetectedLang(null); setSettings(prev => ({ ...prev, source_lang: e.target.value })) }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
                     >
                       {LANGUAGES.filter(l => l.code !== 'en').map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
                     </select>
@@ -559,16 +559,16 @@ export default function PptTranslation() {
 
                   <button
                     onClick={handleSwapLangs}
-                    className="mt-5 p-2 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-600 transition-colors"
+                    className="mt-5 p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
                     title="Swap languages"
                   >⇄</button>
 
                   <div className="flex-1">
-                    <span className="text-xs text-gray-500 block mb-1">Target</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Target</span>
                     <select
                       value={settings.target_lang}
                       onChange={(e) => setSettings(prev => ({ ...prev, target_lang: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
                     >
                       {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
                     </select>
@@ -578,17 +578,17 @@ export default function PptTranslation() {
 
               {/* Cost estimate */}
               {selectedCount > 0 && (
-                <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 text-sm space-y-1">
+                <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-700 text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Slides selected:</span>
+                    <span className="text-gray-600 dark:text-gray-300">Slides selected:</span>
                     <span className="font-medium">{selectedCount}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Est. time:</span>
+                    <span className="text-gray-600 dark:text-gray-300">Est. time:</span>
                     <span className="font-medium">{timeLabel}</span>
                   </div>
-                  <div className="flex justify-between pt-1 border-t border-blue-200">
-                    <span className="font-semibold text-gray-900">Est. cost:</span>
+                  <div className="flex justify-between pt-1 border-t border-blue-200 dark:border-blue-700">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">Est. cost:</span>
                     <span className="font-bold text-blue-600">{cost === 0 ? 'Free' : `~$${cost.toFixed(2)}`}</span>
                   </div>
                 </div>
@@ -599,58 +599,58 @@ export default function PptTranslation() {
 
         {/* Slides Selection */}
         {slides.length > 0 && (
-          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 ${isDimmed}`}>
+          <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 ${isDimmed}`}>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Select Slides
-                <span className="ml-2 text-sm font-normal text-gray-500">({selectedCount} of {slides.length} selected)</span>
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({selectedCount} of {slides.length} selected)</span>
               </h2>
               <div className="flex items-center space-x-3">
-                <button onClick={selectAll} className="text-sm text-blue-600 hover:text-blue-700">Select All</button>
-                <span className="text-gray-300">•</span>
-                <button onClick={deselectAll} className="text-sm text-blue-600 hover:text-blue-700">Deselect All</button>
+                <button onClick={selectAll} className="text-sm text-blue-600 dark:text-primary-400 hover:text-blue-700">Select All</button>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
+                <button onClick={deselectAll} className="text-sm text-blue-600 dark:text-primary-400 hover:text-blue-700">Deselect All</button>
               </div>
             </div>
 
             {/* H: Range selector */}
             <div className="flex items-center space-x-2 mb-3">
-              <span className="text-xs text-gray-500">Select range:</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Select range:</span>
               <input
                 type="number" min="1" max={slides.length}
                 value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
                 placeholder="From"
-                className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                className="w-16 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
               />
-              <span className="text-xs text-gray-400">to</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">to</span>
               <input
                 type="number" min="1" max={slides.length}
                 value={rangeTo} onChange={e => setRangeTo(e.target.value)}
                 placeholder="To"
-                className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                className="w-16 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
               />
-              <button onClick={applyRange} className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300">
+              <button onClick={applyRange} className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600">
                 Apply
               </button>
             </div>
 
             {/* G: Slide cards */}
-            <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-3">
+            <div className="max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3">
               <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-2">
                 {slides.map((slide) => (
                   <div
                     key={slide.index}
                     className={`relative border-2 rounded-lg p-2 cursor-pointer transition-all ${
                       slide.selected
-                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md'
                         : slide.has_image
-                        ? 'border-teal-200 hover:border-teal-300 hover:shadow'
-                        : 'border-gray-200 hover:border-gray-300 hover:shadow'
+                        ? 'border-teal-200 dark:border-teal-700 hover:border-teal-300 hover:shadow'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow'
                     }`}
                     onClick={() => toggleSlide(slide.index)}
                   >
                     <div className="absolute top-1 right-1 z-10">
                       <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                        slide.selected ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'
+                        slide.selected ? 'bg-blue-600 border-blue-600' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'
                       }`}>
                         {slide.selected && (
                           <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -660,13 +660,13 @@ export default function PptTranslation() {
                       </div>
                     </div>
 
-                    <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 rounded relative overflow-hidden mb-1 flex items-center justify-center">
+                    <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-700 rounded relative overflow-hidden mb-1 flex items-center justify-center">
                       {slide.has_image
                         ? <ImageIcon className="w-5 h-5 text-teal-500" />
-                        : <FileText className="w-5 h-5 text-gray-400" />
+                        : <FileText className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                       }
                     </div>
-                    <p className="text-xs font-medium text-center text-gray-600">#{slide.index + 1}</p>
+                    <p className="text-xs font-medium text-center text-gray-600 dark:text-gray-300">#{slide.index + 1}</p>
                     <p className="text-xs text-center" style={{ fontSize: '9px', color: slide.has_image ? '#0d9488' : '#9ca3af' }}>
                       {slide.has_image ? '🖼' : '📄'}
                     </p>
@@ -697,12 +697,12 @@ export default function PptTranslation() {
         {/* K: Retry failed slides banner */}
         {jobId && !processing && translationCompleted && failedSlides > 0 && !isRetryMode && (
           <div className="mb-4 flex justify-center">
-            <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-4 max-w-2xl w-full flex items-center justify-between gap-4">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-xl p-4 max-w-2xl w-full flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-yellow-800">
+                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
                   {failedSlides} slide{failedSlides > 1 ? 's' : ''} failed
                 </p>
-                <p className="text-xs text-yellow-700 mt-0.5">
+                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-0.5">
                   Retry only the failed slides to save cost — you'll pay only for those.
                   Results will be merged into a single file.
                 </p>
@@ -719,11 +719,11 @@ export default function PptTranslation() {
 
         {/* E: Progress card (center stage) */}
         {processing && (
-          <div ref={progressRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div ref={progressRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center space-x-2">
                 <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" />
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   {slidesDetected > 0
                     ? `Processing slide ${currentSlide} of ${slidesDetected}`
                     : progressMessage || 'Processing...'}
@@ -731,12 +731,12 @@ export default function PptTranslation() {
               </div>
               <div className="flex items-center space-x-4 text-sm">
                 {/* F: Elapsed timer */}
-                <span className="text-gray-400">Running for {formatElapsed(elapsed)}</span>
-                <span className="font-semibold text-gray-700">{Math.round(progress)}%</span>
+                <span className="text-gray-400 dark:text-gray-500">Running for {formatElapsed(elapsed)}</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-200">{Math.round(progress)}%</span>
               </div>
             </div>
 
-            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden mt-3">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden mt-3">
               <div
                 className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
@@ -755,32 +755,32 @@ export default function PptTranslation() {
         {/* Detailed slide status */}
         {jobId && !processing && slideMethods.length > 0 && (
           <details className="mb-4">
-            <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-blue-600 mb-2 select-none">
+            <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 mb-2 select-none">
               View detailed slide status ({slideMethods.length} slides)
             </summary>
-            <div className="mt-3 bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="mt-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     {['Slide', 'Status', 'Method', 'Error'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {slideMethods.map((slide, idx) => {
                     const isOffline = slide.method === 'offline'
                     const isFailed = !slide.method || slide.method === 'unknown'
                     return (
-                      <tr key={idx} className={isFailed ? 'bg-red-50' : isOffline ? 'bg-orange-50' : ''}>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">#{slide.slide}</td>
+                      <tr key={idx} className={isFailed ? 'bg-red-50 dark:bg-red-900/20' : isOffline ? 'bg-orange-50' : ''}>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">#{slide.slide}</td>
                         <td className="px-4 py-3 text-sm">
                           {!isFailed && !isOffline && <span className="text-green-600 font-medium">Success</span>}
                           {isOffline && <span className="text-orange-600 font-medium">Offline fallback</span>}
                           {isFailed && <span className="text-red-600 font-medium">Failed</span>}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{slide.model || slide.method || '—'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{slide.error || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{slide.model || slide.method || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{slide.error || '—'}</td>
                       </tr>
                     )
                   })}
@@ -793,36 +793,36 @@ export default function PptTranslation() {
         {/* J: Translation history */}
         {history.length > 0 && (
           <details open={showHistory} onToggle={e => setShowHistory(e.target.open)} className="mb-4">
-            <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-blue-600 mb-2 select-none">
+            <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 mb-2 select-none">
               Recent translations ({history.length})
             </summary>
-            <div className="mt-3 bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="mt-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     {['Date', 'File', 'Slides', 'Provider', 'Cost', ''].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {history.map(job => {
                     const cost = job.settings_used?.total_cost
                     const date = job.created_at ? new Date(job.created_at).toLocaleDateString() : '—'
                     return (
-                      <tr key={job.id} className={job.status === 'failed' ? 'bg-red-50' : ''}>
-                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{date}</td>
-                        <td className="px-4 py-3 text-xs text-gray-700 max-w-[140px] truncate" title={job.input_filename}>{job.input_filename}</td>
-                        <td className="px-4 py-3 text-xs text-gray-700">{job.slides_processed ?? '—'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{job.provider || '—'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-700">
+                      <tr key={job.id} className={job.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20' : ''}>
+                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{date}</td>
+                        <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-200 max-w-[140px] truncate" title={job.input_filename}>{job.input_filename}</td>
+                        <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-200">{job.slides_processed ?? '—'}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{job.provider || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-200">
                           {cost !== undefined && cost !== null ? `$${Number(cost).toFixed(3)}` : '—'}
                         </td>
                         <td className="px-4 py-3">
                           {job.status === 'completed' && (
                             <button
                               onClick={() => triggerDownload(`${API_URL}/api/ppt/download/${job.id}`)}
-                              className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
+                              className="text-xs text-blue-600 dark:text-primary-400 hover:text-blue-800 font-medium flex items-center space-x-1"
                             >
                               <Download size={12} /><span>Download</span>
                             </button>
@@ -842,18 +842,18 @@ export default function PptTranslation() {
 
       {/* Sticky action bar */}
       {(file || jobId) && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 shadow-xl">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700 shadow-xl">
           <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
 
             {/* Left: context summary */}
-            <div className="text-base text-gray-600 flex items-center gap-4 min-w-0">
+            <div className="text-base text-gray-600 dark:text-gray-300 flex items-center gap-4 min-w-0">
               {processing ? (
                 <>
                   <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse flex-shrink-0" />
-                  <span className="font-semibold text-gray-800 truncate">
+                  <span className="font-semibold text-gray-800 dark:text-gray-100 truncate">
                     {slidesDetected > 0 ? `Slide ${currentSlide} / ${slidesDetected}` : 'Processing...'}
                   </span>
-                  <span className="text-gray-400 flex-shrink-0">{formatElapsed(elapsed)}</span>
+                  <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">{formatElapsed(elapsed)}</span>
                   <span className="font-bold text-blue-600 flex-shrink-0">{Math.round(progress)}%</span>
                 </>
               ) : translationCompleted ? (
