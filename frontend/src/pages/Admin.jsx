@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../contexts/AppContext'
-import { Lock, Key, Database, Trash2, Settings } from 'lucide-react'
+import { Lock, Key, Trash2, Settings, Upload, FileSpreadsheet } from 'lucide-react'
 import axios from 'axios'
 import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
@@ -9,10 +9,18 @@ export default function Admin() {
   const { isAdmin, login, getAuthHeader } = useApp()
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
-  
+
   const [apiKeys, setApiKeys] = useState([])
   const [stats, setStats] = useState(null)
   const [newPassword, setNewPassword] = useState({ current: '', new: '' })
+
+  // Templates state
+  const [templates, setTemplates] = useState({})
+  const [templateMarket, setTemplateMarket] = useState('')
+  const [templateFile, setTemplateFile] = useState(null)
+  const [templateUploading, setTemplateUploading] = useState(false)
+  const [templateMessage, setTemplateMessage] = useState(null)
+  const templateInputRef = useRef(null)
   const [ocrModel, setOcrModel] = useState('openrouter/free')
   const [ocrModelSaved, setOcrModelSaved] = useState(false)
   
@@ -21,6 +29,7 @@ export default function Admin() {
       loadApiKeys()
       loadStats()
       loadOcrModel()
+      loadTemplates()
     }
   }, [isAdmin])
   
@@ -124,6 +133,60 @@ export default function Admin() {
     }
   }
   
+  const loadTemplates = async () => {
+    try {
+      const res = await axios.get('/api/admin/excel/templates', { headers: getAuthHeader() })
+      setTemplates(res.data.templates || {})
+    } catch (error) {
+      console.error('Error loading templates:', error)
+    }
+  }
+
+  const handleTemplateUpload = async () => {
+    if (!templateFile || !templateMarket.trim()) return
+    setTemplateUploading(true)
+    setTemplateMessage(null)
+    try {
+      const formData = new FormData()
+      formData.append('market', templateMarket.trim().toUpperCase())
+      formData.append('file', templateFile)
+      await axios.post('/api/admin/excel/templates/upload', formData, {
+        headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' }
+      })
+      setTemplateMessage({ type: 'success', text: `Template uploaded for market ${templateMarket.toUpperCase()}` })
+      setTemplateFile(null)
+      setTemplateMarket('')
+      if (templateInputRef.current) templateInputRef.current.value = ''
+      loadTemplates()
+    } catch (error) {
+      setTemplateMessage({ type: 'error', text: error.response?.data?.detail || 'Upload failed' })
+    } finally {
+      setTemplateUploading(false)
+    }
+  }
+
+  const handleDeleteTemplate = async (market, timestamp) => {
+    if (!confirm(`Delete template Shipment_${market}_${timestamp}.xlsx?`)) return
+    try {
+      await axios.delete(`/api/admin/excel/templates/${market}/${timestamp}`, { headers: getAuthHeader() })
+      loadTemplates()
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Delete failed')
+    }
+  }
+
+  const handleSetActive = async (market, timestamp) => {
+    try {
+      await axios.post(`/api/admin/excel/templates/${market}/set-active`, {}, {
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        params: { timestamp }
+      })
+      loadTemplates()
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Failed to set active')
+    }
+  }
+
   const handleCleanup = async () => {
     if (!confirm('Delete files older than 30 days?')) return
     
@@ -179,7 +242,15 @@ export default function Admin() {
   
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Admin Panel</h1>
+      <div className="mb-8 flex items-center space-x-4">
+        <div className="w-12 h-12 bg-gradient-to-br from-slate-600 to-slate-800 rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-xl">AP</span>
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
+          <p className="text-gray-600">System configuration and monitoring</p>
+        </div>
+      </div>
       
       {/* Stats */}
       {stats && (
@@ -328,6 +399,100 @@ export default function Admin() {
         </form>
       </div>
       
+      {/* Excel Templates */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center space-x-2 mb-5">
+          <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+          <h2 className="text-lg font-semibold">Excel Templates</h2>
+        </div>
+
+        {/* Upload form */}
+        <div className="border border-dashed border-gray-300 rounded-lg p-4 mb-5">
+          <p className="text-sm font-medium text-gray-700 mb-3">Upload a new template</p>
+          <div className="flex gap-3 items-end flex-wrap">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Market code</label>
+              <input
+                type="text"
+                value={templateMarket}
+                onChange={e => setTemplateMarket(e.target.value.toUpperCase().slice(0, 2))}
+                placeholder="ES"
+                maxLength={2}
+                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex-1 min-w-48">
+              <label className="block text-xs text-gray-500 mb-1">Template file (.xlsx)</label>
+              <input
+                ref={templateInputRef}
+                type="file"
+                accept=".xlsx"
+                onChange={e => setTemplateFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+              />
+            </div>
+            <button
+              onClick={handleTemplateUpload}
+              disabled={templateUploading || !templateFile || templateMarket.length !== 2}
+              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Upload size={15} />
+              <span>{templateUploading ? 'Uploading…' : 'Upload'}</span>
+            </button>
+          </div>
+          {templateMessage && (
+            <p className={`mt-2 text-sm ${templateMessage.type === 'success' ? 'text-emerald-700' : 'text-red-600'}`}>
+              {templateMessage.type === 'success' ? '✓ ' : '✗ '}{templateMessage.text}
+            </p>
+          )}
+        </div>
+
+        {/* Templates list */}
+        {Object.keys(templates).length === 0 ? (
+          <p className="text-sm text-gray-400">No templates found.</p>
+        ) : (
+          <div className="space-y-4">
+            {Object.entries(templates).sort(([a], [b]) => a.localeCompare(b)).map(([market, versions]) => (
+              <div key={market}>
+                <p className="text-sm font-semibold text-gray-700 mb-2">
+                  {market} <span className="text-gray-400 font-normal">({versions.length} version{versions.length > 1 ? 's' : ''})</span>
+                </p>
+                <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+                  {versions.map((tpl, idx) => (
+                    <div key={tpl.timestamp} className={`flex items-center justify-between px-4 py-2.5 ${idx === 0 ? 'bg-emerald-50' : 'bg-white'}`}>
+                      <div className="flex items-center space-x-3">
+                        {idx === 0 && (
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+                        )}
+                        <span className="text-sm font-mono text-gray-600">{tpl.filename}</span>
+                        <span className="text-xs text-gray-400">{tpl.size}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {idx !== 0 && (
+                          <button
+                            onClick={() => handleSetActive(market, tpl.timestamp)}
+                            className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50"
+                          >
+                            Set active
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteTemplate(market, tpl.timestamp)}
+                          disabled={versions.length <= 1}
+                          className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* File Cleanup */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between">

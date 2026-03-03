@@ -3,13 +3,14 @@ Admin API Router
 Handles authentication, API key management, and system settings
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+import shutil
 
 from models.database import AdminSettings, APIKey, Job, get_db
 from utils.helpers import (
@@ -22,6 +23,7 @@ from utils.helpers import (
     format_file_size
 )
 from config.settings import settings
+from services.excel_service import _DEFAULT_TEMPLATES_DIR
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -263,49 +265,67 @@ async def list_excel_templates(
     session_token: str = Depends(get_admin_session)
 ):
     """List all Excel templates with versions"""
-    from pathlib import Path
     import re
-    
-    templates_dir = Path("templates")
-    
+
+    templates_dir = _DEFAULT_TEMPLATES_DIR
+
     if not templates_dir.exists():
-        return {
-            "templates": [],
-            "message": "Templates directory not found"
-        }
-    
-    # Pattern: Shipment_{MARKET}_{YYYYMMDD_HHMMSS}.xlsx
+        return {"templates": {}, "markets": []}
+
     pattern = re.compile(r'^Shipment_([A-Z]{2})_(\d{8}_\d{6})\.xlsx$')
-    
-    # Group by market
     templates_by_market = {}
-    
+
     for file_path in templates_dir.glob("Shipment_*.xlsx"):
         match = pattern.match(file_path.name)
         if match:
             market = match.group(1)
             timestamp = match.group(2)
-            
             if market not in templates_by_market:
                 templates_by_market[market] = []
-            
-            # Get file size
-            file_size = file_path.stat().st_size
-            
             templates_by_market[market].append({
                 "filename": file_path.name,
                 "timestamp": timestamp,
-                "size": format_file_size(file_size),
-                "path": str(file_path)
+                "size": format_file_size(file_path.stat().st_size),
             })
-    
-    # Sort each market's templates by timestamp (newest first)
+
     for market in templates_by_market:
         templates_by_market[market].sort(key=lambda x: x['timestamp'], reverse=True)
-    
+
     return {
         "templates": templates_by_market,
-        "markets": list(templates_by_market.keys())
+        "markets": sorted(templates_by_market.keys())
+    }
+
+
+@router.post("/excel/templates/upload")
+async def upload_excel_template(
+    market: str = Form(...),
+    file: UploadFile = File(...),
+    session_token: str = Depends(get_admin_session)
+):
+    """Upload a new Excel template for a market"""
+    market = market.upper().strip()
+    if len(market) != 2 or not market.isalpha():
+        raise HTTPException(status_code=400, detail="Market must be a 2-letter country code (e.g. ES, FR, IT)")
+
+    if not file.filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="File must be an .xlsx file")
+
+    templates_dir = _DEFAULT_TEMPLATES_DIR
+    templates_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"Shipment_{market}_{timestamp}.xlsx"
+    dest = templates_dir / filename
+
+    with dest.open("wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    return {
+        "success": True,
+        "filename": filename,
+        "market": market,
+        "message": f"Template uploaded for market {market}"
     }
 
 
@@ -316,29 +336,19 @@ async def delete_excel_template(
     session_token: str = Depends(get_admin_session)
 ):
     """Delete a specific template version"""
-    from pathlib import Path
-    
-    templates_dir = Path("templates")
+    templates_dir = _DEFAULT_TEMPLATES_DIR
     filename = f"Shipment_{market}_{timestamp}.xlsx"
     file_path = templates_dir / filename
-    
+
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Template not found")
-    
-    # Don't allow deleting the last template for a market
+
     remaining = list(templates_dir.glob(f"Shipment_{market}_*.xlsx"))
     if len(remaining) <= 1:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot delete the last template for market {market}"
-        )
-    
+        raise HTTPException(status_code=400, detail=f"Cannot delete the last template for market {market}")
+
     file_path.unlink()
-    
-    return {
-        "success": True,
-        "message": f"Template {filename} deleted successfully"
-    }
+    return {"success": True, "message": f"Template {filename} deleted"}
 
 
 @router.post("/excel/templates/{market}/set-active")
@@ -347,28 +357,15 @@ async def set_active_template(
     timestamp: str,
     session_token: str = Depends(get_admin_session)
 ):
-    """Set a specific template as active (rename to latest timestamp)"""
-    from pathlib import Path
-    from datetime import datetime
-    import shutil
-    
-    templates_dir = Path("templates")
-    old_filename = f"Shipment_{market}_{timestamp}.xlsx"
-    old_path = templates_dir / old_filename
-    
+    """Promote an older template to active by copying it with a newer timestamp"""
+    templates_dir = _DEFAULT_TEMPLATES_DIR
+    old_path = templates_dir / f"Shipment_{market}_{timestamp}.xlsx"
+
     if not old_path.exists():
         raise HTTPException(status_code=404, detail="Template not found")
-    
-    # Create new filename with current timestamp
+
     new_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     new_filename = f"Shipment_{market}_{new_timestamp}.xlsx"
-    new_path = templates_dir / new_filename
-    
-    # Copy file with new timestamp (keeps the old one as backup)
-    shutil.copy2(old_path, new_path)
-    
-    return {
-        "success": True,
-        "message": f"Template set as active",
-        "new_filename": new_filename
-    }
+    shutil.copy2(old_path, templates_dir / new_filename)
+
+    return {"success": True, "message": "Template set as active", "new_filename": new_filename}

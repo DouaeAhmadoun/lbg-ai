@@ -40,7 +40,15 @@ export default function History() {
   
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Job History</h1>
+      <div className="mb-8 flex items-center space-x-4">
+        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-xl">H</span>
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Job History</h1>
+          <p className="text-gray-600">All past PPT and Excel jobs</p>
+        </div>
+      </div>
       
       {/* Tabs */}
       <div className="flex space-x-4 mb-6">
