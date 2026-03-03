@@ -96,11 +96,11 @@ function loadSavedSettings() {
 }
 
 // --- Tooltip ---
-function Tooltip({ text }) {
+function Tooltip({ text, direction = 'up' }) {
   return (
     <span className="relative group inline-flex items-center ml-1 cursor-help">
       <span className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-[10px] flex items-center justify-center font-bold">?</span>
-      <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-60 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg text-center leading-snug">
+      <span className={`absolute left-1/2 -translate-x-1/2 w-60 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg text-center leading-snug ${direction === 'up' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
         {text}
       </span>
     </span>
@@ -682,7 +682,7 @@ export default function PptTranslation() {
           <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 ${isDimmed}`}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Select Slides
+                Select Slides <Tooltip text="Click individual slides to include or exclude them. Use Select All, Deselect All or the range selector to quickly pick multiple slides." />
                 <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({selectedCount} of {slides.length} selected)</span>
               </h2>
               <div className="flex items-center space-x-3">
