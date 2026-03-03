@@ -33,6 +33,9 @@ export default function Admin() {
   const [autoCleanup, setAutoCleanup] = useState(false)
   const [balance, setBalance] = useState(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
+  const [resetConfirm, setResetConfirm] = useState(false)
+  const [resetInput, setResetInput] = useState('')
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     if (isAdmin) {
@@ -243,6 +246,22 @@ export default function Admin() {
     finally { setBudgetSaving(false) }
   }
 
+  const handleReset = async () => {
+    setResetting(true)
+    try {
+      const res = await axios.delete('/api/admin/reset-history', { headers: getAuthHeader() })
+      alert(res.data.message)
+      setResetConfirm(false)
+      setResetInput('')
+      loadStats()
+      loadUsage()
+    } catch (e) {
+      alert(e.response?.data?.detail || e.message)
+    } finally {
+      setResetting(false)
+    }
+  }
+
   const handleToggleAutoCleanup = async (val) => {
     setAutoCleanup(val)
     try {
@@ -313,8 +332,9 @@ export default function Admin() {
             <p className="text-3xl font-bold text-green-600">{stats.completed_jobs}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 dark:text-gray-300">Total Cost</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">All-time cost</p>
             <p className="text-3xl font-bold dark:text-gray-100">${stats.total_cost}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PPT API usage only</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <p className="text-sm text-gray-600 dark:text-gray-300">Storage</p>
@@ -809,6 +829,56 @@ export default function Admin() {
           />
           <span className="text-sm text-gray-600 dark:text-gray-400">Enable automatic daily cleanup</span>
         </label>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-red-200 dark:border-red-900 p-6">
+        <div className="flex items-center space-x-2 mb-1">
+          <Trash2 className="w-5 h-5 text-red-600" />
+          <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">Danger Zone</h2>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Reset all job history, costs, and uploaded/output files. API keys and settings are preserved.
+        </p>
+
+        {!resetConfirm ? (
+          <button
+            onClick={() => setResetConfirm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
+          >
+            <Trash2 size={15} />
+            Reset all history &amp; files…
+          </button>
+        ) : (
+          <div className="space-y-3 max-w-sm">
+            <p className="text-sm font-medium text-red-700 dark:text-red-400">
+              Type <span className="font-mono bg-red-100 dark:bg-red-900/30 px-1 rounded">RESET</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={resetInput}
+              onChange={e => setResetInput(e.target.value)}
+              placeholder="RESET"
+              className="w-full border border-red-300 dark:border-red-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleReset}
+                disabled={resetInput !== 'RESET' || resetting}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <Trash2 size={14} />
+                {resetting ? 'Resetting…' : 'Confirm reset'}
+              </button>
+              <button
+                onClick={() => { setResetConfirm(false); setResetInput('') }}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

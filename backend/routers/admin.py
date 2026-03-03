@@ -3,7 +3,7 @@ Admin API Router
 Handles authentication, API key management, and system settings
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Header
 from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -584,3 +584,33 @@ async def download_excel_template(
         filename=file_path.name,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+
+@router.delete("/reset-history")
+async def reset_history(
+    session_token: str = Depends(get_admin_session),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete all job records and associated uploaded/output files."""
+    import os
+
+    # Delete all files in uploads and outputs dirs
+    deleted_files = 0
+    for directory in [settings.upload_dir, settings.output_dir]:
+        if directory.exists():
+            for f in directory.iterdir():
+                if f.is_file():
+                    try:
+                        f.unlink()
+                        deleted_files += 1
+                    except Exception:
+                        pass
+
+    # Delete all job rows
+    result = await db.execute(delete(Job))
+    deleted_jobs = result.rowcount
+    await db.commit()
+
+    return {
+        "message": f"Reset complete: {deleted_jobs} jobs deleted, {deleted_files} files removed."
+    }
