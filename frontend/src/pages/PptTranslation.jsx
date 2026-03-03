@@ -37,8 +37,6 @@ const MODEL_CONFIG = {
   'claude:claude-sonnet-4-20250514': { price: 0.060, minSec: 10, maxSec: 20 },
 }
 
-const LANG_FLAGS = { fr: '🇫🇷', es: '🇪🇸', it: '🇮🇹', en: '🇬🇧' }
-const LANG_NAMES = { fr: 'French', es: 'Spanish', it: 'Italian', en: 'English' }
 
 const LANGUAGES = [
   { code: 'fr', label: '🇫🇷 French' },
@@ -52,6 +50,15 @@ const LANGUAGES = [
 const formatElapsed = (s) => {
   const m = Math.floor(s / 60)
   return m > 0 ? `${m}m ${s % 60}s` : `${s}s`
+}
+
+const triggerDownload = (url) => {
+  const a = document.createElement('a')
+  a.href = url
+  a.download = ''
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
 }
 
 const getEstimate = (modelKey, count) => {
@@ -301,7 +308,7 @@ export default function PptTranslation() {
           setProgressMessage(lines.join('\n'))
 
           if (autoDownload) {
-            window.location.href = `${API_URL}/api/ppt/download/${id}`
+            triggerDownload(`${API_URL}/api/ppt/download/${id}`)
           }
 
           // Refresh history
@@ -321,7 +328,7 @@ export default function PptTranslation() {
     setTimeout(() => { clearInterval(pollInterval); setProcessing(false); setProgress(100) }, 300000)
   }
 
-  const handleDownload = () => { if (jobId) window.location.href = `${API_URL}/api/ppt/download/${jobId}` }
+  const handleDownload = () => { if (jobId) triggerDownload(`${API_URL}/api/ppt/download/${jobId}`) }
 
   const handleCancel = async () => {
     if (!jobId) return
@@ -364,7 +371,7 @@ export default function PptTranslation() {
       formData.append('job_id_1', firstJobId)
       formData.append('job_id_2', jobId)
       const response = await axios.post('/api/ppt/merge', formData)
-      window.location.href = `${API_URL}/api/ppt/download/${response.data.job_id}`
+      triggerDownload(`${API_URL}/api/ppt/download/${response.data.job_id}`)
       setIsRetryMode(false)
       setFirstJobId(null)
     } catch (err) {
@@ -380,7 +387,7 @@ export default function PptTranslation() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-5xl mx-auto px-4">
 
         {/* Header */}
         <div className="mb-8 flex items-center space-x-4">
@@ -639,21 +646,6 @@ export default function PptTranslation() {
           </div>
         )}
 
-        {/* D: Pre-translation summary */}
-        {slides.length > 0 && selectedCount > 0 && !processing && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center space-x-4 text-sm text-gray-600 flex-wrap gap-y-1">
-              <span className="font-medium text-gray-800">{selectedCount} slide{selectedCount !== 1 ? 's' : ''}</span>
-              <span className="text-gray-300">·</span>
-              <span>{LANG_FLAGS[settings.source_lang]} {LANG_NAMES[settings.source_lang]} → {LANG_FLAGS[settings.target_lang]} {LANG_NAMES[settings.target_lang]}</span>
-              <span className="text-gray-300">·</span>
-              <span>{MODEL_OPTIONS.find(m => m.key === modelKey)?.name}</span>
-              {cost > 0 && <><span className="text-gray-300">·</span><span className="text-blue-600 font-medium">~${cost.toFixed(2)}</span></>}
-              {timeLabel && <><span className="text-gray-300">·</span><span>{timeLabel}</span></>}
-            </div>
-          </div>
-        )}
-
         {/* Action buttons */}
         <div className="flex justify-center space-x-3 mb-6">
           <button
@@ -841,7 +833,7 @@ export default function PptTranslation() {
                         <td className="px-4 py-3">
                           {job.status === 'completed' && (
                             <button
-                              onClick={() => { window.location.href = `${API_URL}/api/ppt/download/${job.id}` }}
+                              onClick={() => triggerDownload(`${API_URL}/api/ppt/download/${job.id}`)}
                               className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
                             >
                               <Download size={12} /><span>Download</span>
