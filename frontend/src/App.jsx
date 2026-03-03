@@ -15,7 +15,7 @@ function AppContent() {
       <Navigation />
       {backendDown && (
         <div className="bg-red-600 text-white text-sm text-center py-2 px-4">
-          ⚠️ Impossible de contacter le serveur — vérifiez que le backend est démarré.
+          ⚠️ Unable to reach the server — make sure the backend is running.
         </div>
       )}
       <main className="container mx-auto px-4 py-8 flex-1">
