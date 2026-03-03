@@ -566,10 +566,18 @@ async def merge_translations(
 
         # Build (original_1based_idx → output_0based_position) maps from slide_methods
         def successful_slide_map(slide_methods):
-            """Returns [(original_1based_idx, output_0based_pos), ...] sorted by original index."""
-            ok = [m for m in slide_methods if m.get("method") and m.get("method") != "unknown"]
-            ok.sort(key=lambda m: m["slide"])
-            return [(m["slide"], i) for i, m in enumerate(ok)]
+            """Returns [(original_1based_idx, output_0based_pos), ...] sorted by original index.
+
+            IMPORTANT: failed slides are also written to the output PPTX (as blank/image-only slides),
+            so the correct PPTX position is the index in the FULL slide_methods list, not in the
+            filtered successful-only list.
+            """
+            result = []
+            for pptx_pos, m in enumerate(slide_methods):
+                if m.get("method") and m.get("method") != "unknown":
+                    result.append((m["slide"], pptx_pos))
+            result.sort(key=lambda x: x[0])
+            return result
 
         methods1 = (job1.settings_used or {}).get("slide_methods", [])
         methods2 = (job2.settings_used or {}).get("slide_methods", [])
@@ -596,6 +604,9 @@ async def merge_translations(
 
         for orig_idx, (job_num, out_pos) in combined:
             src_prs = prs1 if job_num == 1 else prs2
+            if out_pos >= len(src_prs.slides):
+                print(f"⚠️ Skip slide orig#{orig_idx} from job{job_num}: out_pos={out_pos} >= {len(src_prs.slides)} slides")
+                continue
             src_slide = src_prs.slides[out_pos]
             dest_slide = merged.slides.add_slide(merged.slide_layouts[6])  # blank
 

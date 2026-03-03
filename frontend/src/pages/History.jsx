@@ -4,6 +4,17 @@ import axios from 'axios'
 import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
 
+function Tooltip({ text }) {
+  return (
+    <span className="relative group inline-flex items-center ml-1 cursor-help">
+      <span className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-[10px] flex items-center justify-center font-bold">?</span>
+      <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-60 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg text-center leading-snug">
+        {text}
+      </span>
+    </span>
+  )
+}
+
 const PAGE_SIZE = 10
 
 export default function History() {
@@ -108,8 +119,8 @@ export default function History() {
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">File</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Provider</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status <Tooltip text="'completed' = file ready to download. 'failed' = an error occurred during processing. 'processing' = job still running." /></th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Provider <Tooltip text="'claude' = Claude Haiku or Sonnet. 'openrouter' = OCR Free mode. Empty for Excel jobs (no AI provider used)." /></th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
             </tr>

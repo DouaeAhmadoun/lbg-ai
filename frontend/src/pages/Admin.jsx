@@ -443,12 +443,12 @@ export default function Admin() {
             <p className="text-3xl font-bold text-green-600">{stats.completed_jobs}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 dark:text-gray-300">All-time cost <Tooltip text="Cumul des coûts Claude et OpenRouter pour les jobs de traduction PPT. Les jobs Excel sont gratuits (pas d'API)." /></p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">All-time cost <Tooltip text="Cumulative Claude and OpenRouter costs for PPT translation jobs. Excel jobs are free (no API used)." /></p>
             <p className="text-3xl font-bold dark:text-gray-100">${stats.total_cost}</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PPT API usage only</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 dark:text-gray-300">Storage <Tooltip text="Taille totale des fichiers uploadés et des fichiers générés encore présents sur le serveur." /></p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Storage <Tooltip text="Total size of uploaded and generated files still present on the server." /></p>
             <p className="text-3xl font-bold dark:text-gray-100">{stats.storage.total}</p>
           </div>
         </div>
@@ -462,7 +462,7 @@ export default function Admin() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Usage & Budget</h2>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Monthly budget $ <Tooltip text="Seuil d'alerte mensuel. Un avertissement s'affiche à partir de 80%. Aucun blocage automatique." /></span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Monthly budget $ <Tooltip text="Monthly alert threshold. A warning is shown when 80% is reached. No automatic blocking." /></span>
             <input
               type="number"
               min="0"
@@ -641,8 +641,8 @@ export default function Admin() {
                     <p className="font-medium capitalize text-gray-900 dark:text-gray-100">{provider}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {provider === 'openrouter'
-                        ? <span>Used for OCR Free mode <Tooltip text="Clé API OpenRouter requise pour le mode OCR Gratuit. Obtenez une clé sur openrouter.ai — un compte gratuit suffit." /></span>
-                        : <span>Claude Haiku & Sonnet 4 <Tooltip text="Clé API Anthropic requise pour les modes de traduction Haiku et Sonnet. Obtenez une clé sur console.anthropic.com." /></span>
+                        ? <span>Used for OCR Free mode <Tooltip text="OpenRouter API key required for OCR Free mode. Get a key at openrouter.ai — a free account is enough." /></span>
+                        : <span>Claude Haiku & Sonnet 4 <Tooltip text="Anthropic API key required for Haiku and Sonnet translation modes. Get a key at console.anthropic.com." /></span>
                       }
                     </p>
                     {key ? (
@@ -751,7 +751,7 @@ export default function Admin() {
             {/* Market dropdown */}
             <div className="flex-shrink-0">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                Market <Tooltip text="Sélectionnez le marché correspondant. Le template sera utilisé pour les fichiers d'expédition de ce pays." />
+                Market <Tooltip text="Select the corresponding market. The template will be used for shipment files for that country." />
               </label>
               <select
                 value={templateMarket}
@@ -1012,7 +1012,7 @@ export default function Admin() {
             onChange={e => handleToggleAutoCleanup(e.target.checked)}
             className="w-4 h-4 rounded border-gray-300 text-blue-600"
           />
-          <span className="text-sm text-gray-600 dark:text-gray-400">Enable automatic daily cleanup <Tooltip text="Supprime automatiquement chaque nuit les fichiers uploadés et générés de plus de 30 jours." /></span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">Enable automatic daily cleanup <Tooltip text="Automatically deletes uploaded and generated files older than 30 days every night." /></span>
         </label>
       </div>
 

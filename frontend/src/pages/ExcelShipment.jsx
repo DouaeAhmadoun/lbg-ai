@@ -94,6 +94,19 @@ const renderGroup = (groups, colorClass) =>
   ))
 
 
+function Tooltip({ text }) {
+  return (
+    <span className="relative group inline-flex items-center ml-1 cursor-help">
+      <span className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-[10px] flex items-center justify-center font-bold">?</span>
+      <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-60 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg text-center leading-snug">
+        {text}
+      </span>
+    </span>
+  )
+}
+
+let _suppressBeforeUnload = false
+
 export default function ExcelShipment() {
   const [sessionId] = useState(() => Math.random().toString(36).slice(2, 11))
   const [availableMarkets, setAvailableMarkets] = useState([])
@@ -136,7 +149,7 @@ export default function ExcelShipment() {
   // Block browser refresh/close when data is loaded
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      if (hasData) {
+      if (hasData && !_suppressBeforeUnload) {
         e.preventDefault()
         e.returnValue = ''
       }
@@ -242,7 +255,14 @@ export default function ExcelShipment() {
       const response = await axios.post('/api/excel/generate', formData)
       const marketLabel = MARKETS.find(m => m.code === selectedMarket)?.label || selectedMarket
       setGenerationSuccess({ jobId: response.data.job_id, market: marketLabel })
-      window.location.href = `${API_URL}/api/excel/download/${response.data.job_id}`
+      _suppressBeforeUnload = true
+      const a = document.createElement('a')
+      a.href = `${API_URL}/api/excel/download/${response.data.job_id}`
+      a.download = ''
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => { _suppressBeforeUnload = false }, 500)
     } catch (err) {
       setError('Error generating file: ' + (err.response?.data?.detail || err.message))
     } finally {
@@ -457,9 +477,9 @@ export default function ExcelShipment() {
                   className="w-full flex items-center justify-between px-4 py-3 text-left bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Column Mapping</span>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Column Mapping <Tooltip text="Shows how your file's columns are matched to the template's required fields." /></span>
                     <span className="text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
-                      {Math.round(currentMapping.coverage * 100)}% coverage
+                      {Math.round(currentMapping.coverage * 100)}% coverage <Tooltip text="Percentage of template columns matched to your file's columns. 100% means all required fields were found." />
                     </span>
                     {currentMapping.unmapped_client_cols?.length > 0 && (
                       <span className="text-xs text-orange-600 dark:text-orange-400">
@@ -500,7 +520,7 @@ export default function ExcelShipment() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
               <span className="mr-2">📋</span>
-              Data Validation Report
+              Data Validation Report <Tooltip text="Blocking errors = missing required fields, rows will be included with empty values. Warnings = data quality issues. Suspicious = flagged for review but won't block generation." />
             </h2>
 
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">

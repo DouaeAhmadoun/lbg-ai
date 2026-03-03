@@ -52,13 +52,19 @@ const formatElapsed = (s) => {
   return m > 0 ? `${m}m ${s % 60}s` : `${s}s`
 }
 
+// Suppress the beforeunload guard briefly so the download anchor click
+// doesn't trigger the "Leave site?" dialog in Brave/Chrome.
+let _suppressBeforeUnload = false
+
 const triggerDownload = (url) => {
+  _suppressBeforeUnload = true
   const a = document.createElement('a')
   a.href = url
   a.download = ''
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
+  setTimeout(() => { _suppressBeforeUnload = false }, 500)
 }
 
 const getEstimate = (modelKey, count) => {
@@ -87,6 +93,18 @@ function loadSavedSettings() {
   } catch {
     return { provider: 'ocr_free', model: 'openrouter/free', source_lang: 'es', target_lang: 'en', base_font_size: 11, title_size_adjustment: 5, subject_size_adjustment: 1, preserve_colors: true }
   }
+}
+
+// --- Tooltip ---
+function Tooltip({ text }) {
+  return (
+    <span className="relative group inline-flex items-center ml-1 cursor-help">
+      <span className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-[10px] flex items-center justify-center font-bold">?</span>
+      <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-60 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg text-center leading-snug">
+        {text}
+      </span>
+    </span>
+  )
 }
 
 // --- Main component ---
@@ -395,6 +413,7 @@ export default function PptTranslation() {
       formData.append('job_id_2', jobId)
       const response = await axios.post('/api/ppt/merge', formData)
       triggerDownload(`${API_URL}/api/ppt/download/${response.data.job_id}`)
+      setJobId(response.data.job_id)
       setIsRetryMode(false)
       setFirstJobId(null)
     } catch (err) {
@@ -418,7 +437,7 @@ export default function PptTranslation() {
   // Block browser refresh/close when data is loaded
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      if (hasData) {
+      if (hasData && !_suppressBeforeUnload) {
         e.preventDefault()
         e.returnValue = ''
       }
@@ -579,7 +598,7 @@ export default function PptTranslation() {
 
               {/* A: Model cards */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Translation Model</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Translation Model <Tooltip text="Free mode uses OCR + OpenRouter's free tier — text only, no formatting. Claude models preserve layout, tables and colors." /></label>
                 <div className="grid grid-cols-3 gap-2">
                   {MODEL_OPTIONS.map(opt => (
                     <button
@@ -602,7 +621,7 @@ export default function PptTranslation() {
 
               {/* B: Languages with swap */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Languages</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Languages <Tooltip text="Source language is auto-detected from slide content when possible. You can override it manually." /></label>
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <div className="flex items-center mb-1 space-x-1">
@@ -649,7 +668,7 @@ export default function PptTranslation() {
                     <span className="font-medium">{timeLabel}</span>
                   </div>
                   <div className="flex justify-between pt-1 border-t border-blue-200 dark:border-blue-700">
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">Est. cost:</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">Est. cost: <Tooltip text="Estimate based on slide count × price per slide. Actual cost may vary slightly depending on content length." /></span>
                     <span className="font-bold text-blue-600">{cost === 0 ? 'Free' : `~$${cost.toFixed(2)}`}</span>
                   </div>
                 </div>
