@@ -1,9 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../contexts/AppContext'
-import { Lock, Key, Trash2, Settings, Upload, FileSpreadsheet, TrendingUp, Wallet } from 'lucide-react'
+import { Lock, Key, Trash2, Settings, Upload, FileSpreadsheet, TrendingUp, Wallet, Eye, EyeOff } from 'lucide-react'
 import axios from 'axios'
 import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
+
+const MARKETS = [
+  { code: 'ES', flag: '🇪🇸', name: 'Spain' },
+  { code: 'IT', flag: '🇮🇹', name: 'Italy' },
+  { code: 'FR', flag: '🇫🇷', name: 'France' },
+]
 
 function Tooltip({ text }) {
   return (
@@ -17,15 +23,54 @@ function Tooltip({ text }) {
   )
 }
 
+function Toast({ toast, onDismiss }) {
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(onDismiss, 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+  if (!toast) return null
+  return (
+    <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm flex items-center gap-3 max-w-sm ${
+      toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+    }`}>
+      <span className="flex-1">{toast.type === 'success' ? '✓' : '✗'} {toast.message}</span>
+      <button onClick={onDismiss} className="opacity-70 hover:opacity-100 text-lg leading-none">✕</button>
+    </div>
+  )
+}
+
+function SkeletonCard() {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 animate-pulse">
+      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 mb-3" />
+      <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+    </div>
+  )
+}
+
 export default function Admin() {
+  useEffect(() => { document.title = 'Admin Panel — LBG AI' }, [])
+
   const { isAdmin, login, adminToken, getAuthHeader, sessionExpired } = useApp()
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
 
   const [apiKeys, setApiKeys] = useState([])
   const [stats, setStats] = useState(null)
+  const [loadingAdmin, setLoadingAdmin] = useState(true)
   const [newPassword, setNewPassword] = useState({ current: '', new: '' })
-  const [passwordMessage, setPasswordMessage] = useState(null) // { type: 'success'|'error', text }
+  const [passwordMessage, setPasswordMessage] = useState(null)
+
+  // Toast
+  const [toast, setToast] = useState(null)
+
+  // API key modal
+  const [apiKeyModal, setApiKeyModal] = useState(null) // {provider, value}
+  const [apiKeySaving, setApiKeySaving] = useState(false)
+
+  // Revealed API keys
+  const [revealedKeys, setRevealedKeys] = useState(new Set())
 
   // Templates state
   const [templates, setTemplates] = useState({})
@@ -34,14 +79,22 @@ export default function Admin() {
   const [templateUploading, setTemplateUploading] = useState(false)
   const [templateMessage, setTemplateMessage] = useState(null)
   const templateInputRef = useRef(null)
+
+  // Set-active confirm
+  const [confirmSetActive, setConfirmSetActive] = useState(null) // {market, timestamp}
+
+  // Delete template confirm
+  const [deletingTemplate, setDeletingTemplate] = useState(null) // {market, timestamp}
+
   const [ocrModel, setOcrModel] = useState('openrouter/free')
   const [ocrModelSaved, setOcrModelSaved] = useState(false)
-  const [modelTestResult, setModelTestResult] = useState(null) // { valid, message }
+  const [modelTestResult, setModelTestResult] = useState(null)
   const [modelTesting, setModelTesting] = useState(false)
 
-  const [usage, setUsage] = useState([]) // daily usage data
+  const [usage, setUsage] = useState([])
   const [monthlyBudget, setMonthlyBudget] = useState('')
   const [budgetSaving, setBudgetSaving] = useState(false)
+  const [budgetSaved, setBudgetSaved] = useState(false)
   const [autoCleanup, setAutoCleanup] = useState(false)
   const [balance, setBalance] = useState(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
@@ -49,61 +102,44 @@ export default function Admin() {
   const [resetInput, setResetInput] = useState('')
   const [resetting, setResetting] = useState(false)
 
+  // Cleanup inline confirm
+  const [cleanupConfirm, setCleanupConfirm] = useState(false)
+  const [cleaningUp, setCleaningUp] = useState(false)
+
   useEffect(() => {
     if (isAdmin) {
-      loadApiKeys()
-      loadStats()
-      loadOcrModel()
-      loadTemplates()
-      loadUsage()
-      loadBalance()
+      Promise.all([loadApiKeys(), loadStats(), loadOcrModel(), loadTemplates(), loadUsage(), loadBalance()])
+        .finally(() => setLoadingAdmin(false))
     }
   }, [isAdmin])
 
   const handleLogin = async (e) => {
     e.preventDefault()
     const result = await login(password)
-    if (!result.success) {
-      setLoginError(result.error)
-    }
+    if (!result.success) setLoginError(result.error)
   }
 
   const loadApiKeys = async () => {
     try {
-      const response = await axios.get('/api/admin/api-keys', {
-        headers: getAuthHeader()
-      })
+      const response = await axios.get('/api/admin/api-keys', { headers: getAuthHeader() })
       setApiKeys(response.data.api_keys)
-    } catch (error) {
-      console.error('Error loading API keys:', error)
-    }
+    } catch (error) { console.error('Error loading API keys:', error) }
   }
 
   const loadStats = async () => {
     try {
-      const response = await axios.get('/api/admin/stats', {
-        headers: getAuthHeader()
-      })
+      const response = await axios.get('/api/admin/stats', { headers: getAuthHeader() })
       setStats(response.data)
-    } catch (error) {
-      console.error('Error loading stats:', error)
-    }
+    } catch (error) { console.error('Error loading stats:', error) }
   }
 
   const loadOcrModel = async () => {
     try {
-      const response = await axios.get('/api/admin/settings', {
-        headers: getAuthHeader()
-      })
-      if (response.data.ocr_model) {
-        setOcrModel(response.data.ocr_model)
-      }
+      const response = await axios.get('/api/admin/settings', { headers: getAuthHeader() })
+      if (response.data.ocr_model) setOcrModel(response.data.ocr_model)
       if (response.data.monthly_budget != null) setMonthlyBudget(String(response.data.monthly_budget))
       if (response.data.auto_cleanup_enabled != null) setAutoCleanup(response.data.auto_cleanup_enabled)
-    } catch (error) {
-      // Endpoint may not exist yet, use default
-      console.log('OCR model settings not available yet')
-    }
+    } catch (error) { console.log('OCR model settings not available yet') }
   }
 
   const handleSaveOcrModel = async () => {
@@ -113,7 +149,7 @@ export default function Admin() {
       setModelTestResult(null)
       setTimeout(() => setOcrModelSaved(false), 2000)
     } catch (error) {
-      alert('Error saving: ' + (error.response?.data?.detail || error.message))
+      setToast({ type: 'error', message: error.response?.data?.detail || error.message })
     }
   }
 
@@ -125,29 +161,33 @@ export default function Admin() {
       setModelTestResult(res.data)
     } catch (error) {
       setModelTestResult({ valid: false, message: error.response?.data?.detail || error.message })
-    } finally {
-      setModelTesting(false)
-    }
+    } finally { setModelTesting(false) }
   }
 
-  const handleAddApiKey = async (provider) => {
-    const key = prompt(`Enter ${provider} API key:`)
-    if (!key) return
-
+  const handleSaveApiKey = async () => {
+    if (!apiKeyModal?.value?.trim()) return
+    setApiKeySaving(true)
     try {
       await axios.post('/api/admin/api-keys', {
-        provider,
-        api_key: key,
-        model_name: provider === 'claude' ? 'claude-sonnet-4-20250514' : 'google/gemma-3-12b-it:free'
-      }, {
-        headers: getAuthHeader()
-      })
-
+        provider: apiKeyModal.provider,
+        api_key: apiKeyModal.value.trim(),
+        model_name: apiKeyModal.provider === 'claude' ? 'claude-sonnet-4-20250514' : 'google/gemma-3-12b-it:free'
+      }, { headers: getAuthHeader() })
+      setApiKeyModal(null)
       loadApiKeys()
-      alert('API key saved successfully')
+      setToast({ type: 'success', message: `${apiKeyModal.provider} API key saved.` })
     } catch (error) {
-      alert('Error saving API key: ' + error.message)
-    }
+      setToast({ type: 'error', message: error.response?.data?.detail || error.message })
+    } finally { setApiKeySaving(false) }
+  }
+
+  const toggleRevealKey = (provider) => {
+    setRevealedKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(provider)) next.delete(provider)
+      else next.add(provider)
+      return next
+    })
   }
 
   const handleChangePassword = async (e) => {
@@ -157,9 +197,7 @@ export default function Admin() {
       await axios.post('/api/admin/change-password', {
         current_password: newPassword.current,
         new_password: newPassword.new
-      }, {
-        headers: getAuthHeader()
-      })
+      }, { headers: getAuthHeader() })
       setPasswordMessage({ type: 'success', text: 'Password changed successfully' })
       setNewPassword({ current: '', new: '' })
     } catch (error) {
@@ -171,9 +209,7 @@ export default function Admin() {
     try {
       const res = await axios.get('/api/admin/excel/templates', { headers: getAuthHeader() })
       setTemplates(res.data.templates || {})
-    } catch (error) {
-      console.error('Error loading templates:', error)
-    }
+    } catch (error) { console.error('Error loading templates:', error) }
   }
 
   const handleTemplateUpload = async () => {
@@ -194,43 +230,53 @@ export default function Admin() {
       loadTemplates()
     } catch (error) {
       setTemplateMessage({ type: 'error', text: error.response?.data?.detail || 'Upload failed' })
-    } finally {
-      setTemplateUploading(false)
-    }
+    } finally { setTemplateUploading(false) }
   }
 
   const handleDeleteTemplate = async (market, timestamp) => {
-    if (!confirm(`Delete template Shipment_${market}_${timestamp}.xlsx?`)) return
+    if (!deletingTemplate || deletingTemplate.market !== market || deletingTemplate.timestamp !== timestamp) {
+      setDeletingTemplate({ market, timestamp })
+      return
+    }
     try {
       await axios.delete(`/api/admin/excel/templates/${market}/${timestamp}`, { headers: getAuthHeader() })
+      setDeletingTemplate(null)
       loadTemplates()
+      setToast({ type: 'success', message: 'Template deleted.' })
     } catch (error) {
-      alert(error.response?.data?.detail || 'Delete failed')
+      setToast({ type: 'error', message: error.response?.data?.detail || 'Delete failed' })
     }
   }
 
   const handleSetActive = async (market, timestamp) => {
+    if (!confirmSetActive || confirmSetActive.market !== market || confirmSetActive.timestamp !== timestamp) {
+      setConfirmSetActive({ market, timestamp })
+      return
+    }
     try {
       await axios.post(`/api/admin/excel/templates/${market}/set-active`, {}, {
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         params: { timestamp }
       })
+      setConfirmSetActive(null)
       loadTemplates()
+      setToast({ type: 'success', message: `Template ${market} set as active.` })
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to set active')
+      setToast({ type: 'error', message: error.response?.data?.detail || 'Failed to set active' })
     }
   }
 
   const handleCleanup = async () => {
-    if (!confirm('Delete files older than 30 days?')) return
-
+    if (!cleanupConfirm) { setCleanupConfirm(true); return }
+    setCleaningUp(true)
+    setCleanupConfirm(false)
     try {
       const response = await axios.post('/api/admin/cleanup', {}, { headers: getAuthHeader() })
-      alert(response.data.message)
+      setToast({ type: 'success', message: response.data.message })
       loadStats()
     } catch (error) {
-      alert('Error cleaning up files: ' + (error.response?.data?.detail || error.message))
-    }
+      setToast({ type: 'error', message: error.response?.data?.detail || error.message })
+    } finally { setCleaningUp(false) }
   }
 
   const loadUsage = async () => {
@@ -253,25 +299,26 @@ export default function Admin() {
     setBudgetSaving(true)
     try {
       await axios.post('/api/admin/settings', { monthly_budget: parseFloat(monthlyBudget) || null }, { headers: getAuthHeader() })
+      setBudgetSaved(true)
+      setTimeout(() => setBudgetSaved(false), 2000)
       loadStats()
-    } catch (e) { alert(e.response?.data?.detail || e.message) }
-    finally { setBudgetSaving(false) }
+    } catch (e) {
+      setToast({ type: 'error', message: e.response?.data?.detail || e.message })
+    } finally { setBudgetSaving(false) }
   }
 
   const handleReset = async () => {
     setResetting(true)
     try {
       const res = await axios.delete('/api/admin/reset-history', { headers: getAuthHeader() })
-      alert(res.data.message)
+      setToast({ type: 'success', message: res.data.message })
       setResetConfirm(false)
       setResetInput('')
       loadStats()
       loadUsage()
     } catch (e) {
-      alert(e.response?.data?.detail || e.message)
-    } finally {
-      setResetting(false)
-    }
+      setToast({ type: 'error', message: e.response?.data?.detail || e.message })
+    } finally { setResetting(false) }
   }
 
   const handleToggleAutoCleanup = async (val) => {
@@ -328,6 +375,48 @@ export default function Admin() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
+
+      {/* API Key Modal */}
+      {apiKeyModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1 capitalize">
+              {apiKeyModal.provider} API Key
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              {apiKeyModal.provider === 'claude'
+                ? 'Obtenez votre clé sur console.anthropic.com'
+                : 'Obtenez votre clé sur openrouter.ai'}
+            </p>
+            <input
+              type="password"
+              autoFocus
+              value={apiKeyModal.value}
+              onChange={e => setApiKeyModal(m => ({ ...m, value: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && handleSaveApiKey()}
+              placeholder="sk-••••••••••••••••"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mb-4 font-mono text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setApiKeyModal(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveApiKey}
+                disabled={!apiKeyModal.value?.trim() || apiKeySaving}
+                className="px-4 py-2 text-sm rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {apiKeySaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8 flex items-center space-x-4">
         <div className="w-12 h-12 bg-gradient-to-br from-slate-600 to-slate-800 rounded-lg flex items-center justify-center">
           <span className="text-white font-bold text-xl">AP</span>
@@ -339,7 +428,11 @@ export default function Admin() {
       </div>
 
       {/* Stats */}
-      {stats && (
+      {loadingAdmin ? (
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          {[0,1,2,3].map(i => <SkeletonCard key={i} />)}
+        </div>
+      ) : stats && (
         <div className="grid grid-cols-4 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <p className="text-sm text-gray-600 dark:text-gray-300">Total Jobs</p>
@@ -368,7 +461,6 @@ export default function Admin() {
             <TrendingUp className="w-5 h-5 text-blue-600" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Usage & Budget</h2>
           </div>
-          {/* Monthly budget input */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500 dark:text-gray-400">Monthly budget $ <Tooltip text="Seuil d'alerte mensuel. Un avertissement s'affiche à partir de 80%. Aucun blocage automatique." /></span>
             <input
@@ -383,14 +475,15 @@ export default function Admin() {
             <button
               onClick={handleSaveBudget}
               disabled={budgetSaving}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className={`px-3 py-1 text-sm rounded-lg transition-colors disabled:opacity-50 ${
+                budgetSaved ? 'bg-green-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
-              {budgetSaving ? '...' : 'Set'}
+              {budgetSaving ? '…' : budgetSaved ? '✓ Saved' : 'Set'}
             </button>
           </div>
         </div>
 
-        {/* Current month budget bar */}
         {stats && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-1">
@@ -425,7 +518,6 @@ export default function Admin() {
           </div>
         )}
 
-        {/* 30-day bar chart */}
         {usage.length > 0 && (() => {
           const maxJobs = Math.max(...usage.map(d => d.jobs), 1)
           const last14 = usage.slice(-14)
@@ -471,10 +563,9 @@ export default function Admin() {
         </div>
 
         {!balance ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500">Click Refresh to check balances.</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">Chargement des balances…</p>
         ) : (
           <div className="space-y-3">
-            {/* OpenRouter */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
               <div>
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-200">OpenRouter</p>
@@ -499,7 +590,6 @@ export default function Admin() {
               )}
             </div>
 
-            {/* Claude */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
               <div>
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Claude (Anthropic)</p>
@@ -525,35 +615,62 @@ export default function Admin() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">API Keys</h2>
         </div>
 
-        <div className="space-y-4">
-          {['claude', 'openrouter'].map(provider => {
-            const key = apiKeys.find(k => k.provider === provider)
-            return (
-              <div key={provider} className="flex items-center justify-between border-b border-gray-200 dark:border-gray-600 pb-4">
-                <div>
-                  <p className="font-medium capitalize text-gray-900 dark:text-gray-100">{provider}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {provider === 'openrouter'
-                    ? <span>Used for OCR Free mode <Tooltip text="Clé API OpenRouter requise pour le mode OCR Gratuit. Obtenez une clé sur openrouter.ai — un compte gratuit suffit." /></span>
-                    : <span>Claude Haiku & Sonnet 4 <Tooltip text="Clé API Anthropic requise pour les modes de traduction Haiku et Sonnet. Obtenez une clé sur console.anthropic.com." /></span>
-                  }
-                  </p>
-                  {key ? (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 font-mono">{key.api_key}</p>
-                  ) : (
-                    <p className="text-sm text-gray-400 dark:text-gray-500">Not configured</p>
-                  )}
+        {loadingAdmin ? (
+          <div className="space-y-4">
+            {[0,1].map(i => (
+              <div key={i} className="animate-pulse flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-4">
+                <div className="space-y-2">
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-48" />
                 </div>
-                <button
-                  onClick={() => handleAddApiKey(provider)}
-                  className="text-sm bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700"
-                >
-                  {key ? 'Update' : 'Add'}
-                </button>
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16" />
               </div>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {['claude', 'openrouter'].map(provider => {
+              const key = apiKeys.find(k => k.provider === provider)
+              const isRevealed = revealedKeys.has(provider)
+              const displayKey = key
+                ? (isRevealed ? key.api_key : `••••••••${key.api_key.slice(-6)}`)
+                : null
+              return (
+                <div key={provider} className="flex items-center justify-between border-b border-gray-200 dark:border-gray-600 pb-4">
+                  <div className="flex-1 min-w-0 mr-4">
+                    <p className="font-medium capitalize text-gray-900 dark:text-gray-100">{provider}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {provider === 'openrouter'
+                        ? <span>Used for OCR Free mode <Tooltip text="Clé API OpenRouter requise pour le mode OCR Gratuit. Obtenez une clé sur openrouter.ai — un compte gratuit suffit." /></span>
+                        : <span>Claude Haiku & Sonnet 4 <Tooltip text="Clé API Anthropic requise pour les modes de traduction Haiku et Sonnet. Obtenez une clé sur console.anthropic.com." /></span>
+                      }
+                    </p>
+                    {key ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-mono truncate">{displayKey}</p>
+                        <button
+                          onClick={() => toggleRevealKey(provider)}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
+                          title={isRevealed ? 'Hide key' : 'Show key'}
+                        >
+                          {isRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Not configured</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setApiKeyModal({ provider, value: '' })}
+                    className="text-sm bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 flex-shrink-0"
+                  >
+                    {key ? 'Update' : 'Add'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* OCR Free Model Settings */}
@@ -589,9 +706,7 @@ export default function Admin() {
           <button
             onClick={handleSaveOcrModel}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              ocrModelSaved
-                ? 'bg-green-500 text-white'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+              ocrModelSaved ? 'bg-green-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
           >
             {ocrModelSaved ? '✓ Saved' : 'Save'}
@@ -599,7 +714,7 @@ export default function Admin() {
         </div>
 
         {modelTestResult && (
-          <p className={`mt-2 text-sm ${modelTestResult.valid ? 'text-green-700' : 'text-red-600'}`}>
+          <p className={`mt-2 text-sm ${modelTestResult.valid ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {modelTestResult.valid ? '✓ ' : '✗ '}{modelTestResult.message}
           </p>
         )}
@@ -607,24 +722,16 @@ export default function Admin() {
         <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 space-y-1">
           <p>💡 <strong>Recommended free models (text only, good translation):</strong></p>
           <ul className="ml-4 space-y-1 font-mono">
-            <li
-              className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
-              onClick={() => { setOcrModel('openrouter/free'); setModelTestResult(null) }}
-            >
-              openrouter/free ← recommended (auto-selects best available)
-            </li>
-            <li
-              className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
-              onClick={() => { setOcrModel('google/gemma-3-12b-it:free'); setModelTestResult(null) }}
-            >
-              google/gemma-3-12b-it:free
-            </li>
-            <li
-              className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
-              onClick={() => { setOcrModel('meta-llama/llama-3.1-8b-instruct:free'); setModelTestResult(null) }}
-            >
-              meta-llama/llama-3.1-8b-instruct:free
-            </li>
+            {[
+              'openrouter/free',
+              'google/gemma-3-12b-it:free',
+              'meta-llama/llama-3.1-8b-instruct:free',
+            ].map(m => (
+              <li key={m} className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                onClick={() => { setOcrModel(m); setModelTestResult(null) }}>
+                {m}{m === 'openrouter/free' ? ' ← recommended' : ''}
+              </li>
+            ))}
           </ul>
           <p className="mt-2">⚠️ Click a model name to select it, test it, then Save.</p>
         </div>
@@ -641,20 +748,21 @@ export default function Admin() {
         <div className="rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10 p-5 mb-6">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">Upload a new template</p>
           <div className="flex gap-4 items-start flex-wrap">
-            {/* Market code */}
+            {/* Market dropdown */}
             <div className="flex-shrink-0">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Market code <Tooltip text="Code marché à 2 lettres (ex: ES, IT, FR). Doit correspondre exactement au code utilisé dans les fichiers d'expédition." /></label>
-              <input
-                type="text"
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                Market <Tooltip text="Sélectionnez le marché correspondant. Le template sera utilisé pour les fichiers d'expédition de ce pays." />
+              </label>
+              <select
                 value={templateMarket}
-                onChange={e => setTemplateMarket(e.target.value.toUpperCase().slice(0, 2))}
-                placeholder="ES"
-                maxLength={2}
-                className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono uppercase text-center font-bold tracking-widest focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-              />
-              {templateMarket.length > 0 && templateMarket.length < 2 && (
-                <p className="text-xs text-amber-500 mt-1">2 chars needed</p>
-              )}
+                onChange={e => setTemplateMarket(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 bg-white"
+              >
+                <option value="">Choisir…</option>
+                {MARKETS.map(m => (
+                  <option key={m.code} value={m.code}>{m.flag} {m.code} — {m.name}</option>
+                ))}
+              </select>
             </div>
 
             {/* File drop zone */}
@@ -688,7 +796,7 @@ export default function Admin() {
             <div className="flex-shrink-0 pt-5">
               <button
                 onClick={handleTemplateUpload}
-                disabled={templateUploading || !templateFile || templateMarket.length !== 2}
+                disabled={templateUploading || !templateFile || !templateMarket}
                 className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <Upload size={15} />
@@ -709,72 +817,105 @@ export default function Admin() {
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No templates uploaded yet.</p>
         ) : (
           <div className="space-y-5">
-            {Object.entries(templates).sort(([a], [b]) => a.localeCompare(b)).map(([market, versions]) => (
-              <div key={market}>
-                {/* Market header */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold font-mono">
-                    {market}
-                  </span>
-                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Market {market}</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                    {versions.length} version{versions.length > 1 ? 's' : ''}
-                  </span>
-                </div>
+            {Object.entries(templates).sort(([a], [b]) => a.localeCompare(b)).map(([market, versions]) => {
+              const marketInfo = MARKETS.find(m => m.code === market)
+              return (
+                <div key={market}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">{marketInfo?.flag || '🌍'}</span>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Market {market}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                      {versions.length} version{versions.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
 
-                <div className="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                  {versions.map((tpl, idx) => {
-                    const uploadedAt = tpl.timestamp
-                      ? new Date(
-                          tpl.timestamp.replace(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3T$4:$5:$6')
-                        ).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                      : '—'
-                    return (
-                      <div key={tpl.timestamp} className={`flex items-center gap-4 px-4 py-3 ${idx === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-gray-800'}`}>
-                        {/* Status badge */}
-                        {idx === 0 ? (
-                          <span className="flex-shrink-0 text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full font-medium">Active</span>
-                        ) : (
-                          <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">v{versions.length - idx}</span>
-                        )}
-
-                        {/* File info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-mono text-gray-700 dark:text-gray-200 truncate">{tpl.filename}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{uploadedAt} · {tpl.size}</p>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <a
-                            href={`${API_URL}/api/admin/excel/templates/${market}/${tpl.timestamp}/download?token=${adminToken}`}
-                            className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            title="Download this template"
-                          >
-                            ↓
-                          </a>
-                          {idx !== 0 && (
-                            <button
-                              onClick={() => handleSetActive(market, tpl.timestamp)}
-                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
-                            >
-                              Set active
-                            </button>
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                    {versions.map((tpl, idx) => {
+                      const uploadedAt = tpl.timestamp
+                        ? new Date(
+                            tpl.timestamp.replace(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3T$4:$5:$6')
+                          ).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : '—'
+                      const isPendingDelete = deletingTemplate?.market === market && deletingTemplate?.timestamp === tpl.timestamp
+                      const isPendingSetActive = confirmSetActive?.market === market && confirmSetActive?.timestamp === tpl.timestamp
+                      return (
+                        <div key={tpl.timestamp} className={`flex items-center gap-4 px-4 py-3 ${idx === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-white dark:bg-gray-800'}`}>
+                          {idx === 0 ? (
+                            <span className="flex-shrink-0 text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full font-medium">Active</span>
+                          ) : (
+                            <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">v{versions.length - idx}</span>
                           )}
-                          <button
-                            onClick={() => handleDeleteTemplate(market, tpl.timestamp)}
-                            disabled={versions.length <= 1}
-                            className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Delete
-                          </button>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-mono text-gray-700 dark:text-gray-200 truncate">{tpl.filename}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{uploadedAt} · {tpl.size}</p>
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <a
+                              href={`${API_URL}/api/admin/excel/templates/${market}/${tpl.timestamp}/download?token=${adminToken}`}
+                              className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title="Download"
+                            >
+                              ↓
+                            </a>
+                            {idx !== 0 && (
+                              isPendingSetActive ? (
+                                <>
+                                  <button
+                                    onClick={() => handleSetActive(market, tpl.timestamp)}
+                                    className="text-xs text-white bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded transition-colors"
+                                  >
+                                    ✓ Confirmer
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmSetActive(null)}
+                                    className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  >
+                                    ✕
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => handleSetActive(market, tpl.timestamp)}
+                                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                  Set active
+                                </button>
+                              )
+                            )}
+                            {isPendingDelete ? (
+                              <>
+                                <button
+                                  onClick={() => handleDeleteTemplate(market, tpl.timestamp)}
+                                  className="text-xs text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded transition-colors"
+                                >
+                                  ✓ Supprimer
+                                </button>
+                                <button
+                                  onClick={() => setDeletingTemplate(null)}
+                                  className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                  ✕
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteTemplate(market, tpl.timestamp)}
+                                disabled={versions.length <= 1}
+                                className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -836,13 +977,33 @@ export default function Admin() {
               Delete uploaded and output files older than 30 days
             </p>
           </div>
-          <button
-            onClick={handleCleanup}
-            className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-          >
-            <Trash2 size={18} />
-            <span>Run now</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {cleanupConfirm ? (
+              <>
+                <button
+                  onClick={handleCleanup}
+                  disabled={cleaningUp}
+                  className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                >
+                  {cleaningUp ? 'Running…' : '✓ Confirmer'}
+                </button>
+                <button
+                  onClick={() => setCleanupConfirm(false)}
+                  className="px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Annuler
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleCleanup}
+                className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+              >
+                <Trash2 size={18} />
+                <span>Run now</span>
+              </button>
+            )}
+          </div>
         </div>
         <label className="flex items-center space-x-2 mt-2 cursor-pointer">
           <input

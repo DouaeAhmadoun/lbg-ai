@@ -105,6 +105,8 @@ export default function ExcelShipment() {
   const [dataPreview, setDataPreview] = useState(null)
   const [columnMapping, setColumnMapping] = useState({})
   const [loading, setLoading] = useState(false)
+  const [stepIdx, setStepIdx] = useState(0)
+  const STEPS = ['Lecture du fichier…', 'Analyse des données…', 'Application du template…', 'Génération du fichier…']
   const [error, setError] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [uploadedFileName, setUploadedFileName] = useState(null)
@@ -115,6 +117,15 @@ export default function ExcelShipment() {
 
   const hasData = clientData !== null
   const { setPageGuardActive } = useApp()
+
+  useEffect(() => { document.title = 'Excel Shipment — LBG AI' }, [])
+
+  // Cycle step messages while generating
+  useEffect(() => {
+    if (!loading) { setStepIdx(0); return }
+    const t = setInterval(() => setStepIdx(i => Math.min(i + 1, STEPS.length - 1)), 1800)
+    return () => clearInterval(t)
+  }, [loading])
 
   // Register navigation guard when data is loaded
   useEffect(() => {
@@ -609,7 +620,7 @@ export default function ExcelShipment() {
                   }`}
                 >
                   <Download size={19} />
-                  <span>{loading ? 'Generating...' : 'Generate & Download'}</span>
+                  <span>{loading ? STEPS[stepIdx] : 'Generate & Download'}</span>
                 </button>
               )}
               {generationSuccess && (

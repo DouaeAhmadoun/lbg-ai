@@ -108,6 +108,9 @@ export default function PptTranslation() {
   const [slideMethods, setSlideMethods] = useState([])
   const [translationCompleted, setTranslationCompleted] = useState(false)
 
+  // Recovery
+  const [recoveryJob, setRecoveryJob] = useState(null)
+
   // New state
   const [elapsed, setElapsed] = useState(0)
   const [history, setHistory] = useState([])
@@ -127,6 +130,25 @@ export default function PptTranslation() {
   const modelKey = `${settings.provider}:${settings.model}`
   const selectedCount = slides.filter(s => s.selected).length
   const { cost, timeLabel } = getEstimate(modelKey, selectedCount)
+
+  useEffect(() => { document.title = 'PPT Translation — LBG AI' }, [])
+
+  // Check for interrupted job on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('ppt_active_job')
+      if (saved) {
+        const { jobId: savedJobId, filename, startedAt } = JSON.parse(saved)
+        if (Date.now() - startedAt < 10 * 60 * 1000) {
+          setRecoveryJob({ jobId: savedJobId, filename })
+        } else {
+          localStorage.removeItem('ppt_active_job')
+        }
+      }
+    } catch {
+      localStorage.removeItem('ppt_active_job')
+    }
+  }, [])
 
   // Persist settings to localStorage
   useEffect(() => {
@@ -248,6 +270,8 @@ export default function PptTranslation() {
       const response = await axios.post('/api/ppt/translate', formData)
       const newJobId = response.data.job_id
       setJobId(newJobId)
+      setRecoveryJob(null)
+      localStorage.setItem('ppt_active_job', JSON.stringify({ jobId: newJobId, filename: file.name, startedAt: Date.now() }))
       trackProgress(newJobId)
     } catch (err) {
       setError('Error starting translation: ' + err.message)
@@ -284,6 +308,7 @@ export default function PptTranslation() {
         }
 
         if (job.status === 'completed') {
+          localStorage.removeItem('ppt_active_job')
           setProgress(100)
           setProcessing(false)
           setTranslationCompleted(true)
@@ -312,6 +337,7 @@ export default function PptTranslation() {
           axios.get('/api/ppt/history?limit=5').then(res => setHistory(res.data.jobs || [])).catch(() => {})
 
         } else if (job.status === 'failed') {
+          localStorage.removeItem('ppt_active_job')
           setProcessing(false)
           setTranslationCompleted(false)
           clearInterval(pollInterval)
@@ -458,6 +484,41 @@ export default function PptTranslation() {
             </svg>
             <p className="ml-3 text-sm text-red-800 dark:text-red-300 flex-1">{error}</p>
             <button onClick={() => setError(null)} className="ml-3 text-red-400 hover:text-red-600 text-lg leading-none">×</button>
+          </div>
+        )}
+
+        {/* Recovery banner */}
+        {recoveryJob && (
+          <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center space-x-3 min-w-0">
+              <span className="text-2xl flex-shrink-0">🔄</span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Une traduction était en cours</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 truncate">
+                  Fichier : <span className="font-medium">{recoveryJob.filename}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => {
+                  setJobId(recoveryJob.jobId)
+                  setProcessing(true)
+                  setProgress(0)
+                  setRecoveryJob(null)
+                  trackProgress(recoveryJob.jobId)
+                }}
+                className="px-3 py-1.5 text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
+              >
+                Reprendre le suivi
+              </button>
+              <button
+                onClick={() => { localStorage.removeItem('ppt_active_job'); setRecoveryJob(null) }}
+                className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-700 border border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors"
+              >
+                Ignorer
+              </button>
+            </div>
           </div>
         )}
 

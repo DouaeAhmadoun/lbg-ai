@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
@@ -11,6 +11,8 @@ export function AppProvider({ children }) {
   const [sessionExpired, setSessionExpired] = useState(false)
   const [pageGuardActive, setPageGuardActive] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+  const [backendDown, setBackendDown] = useState(false)
+  const backendDownRef = useRef(false)
 
   useEffect(() => {
     if (adminToken) {
@@ -73,6 +75,27 @@ export function AppProvider({ children }) {
     return () => axios.interceptors.response.eject(interceptor)
   }, [adminToken])
 
+  // Backend down detection (network errors = no error.response)
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      response => {
+        if (backendDownRef.current) {
+          backendDownRef.current = false
+          setBackendDown(false)
+        }
+        return response
+      },
+      error => {
+        if (!error.response) {
+          backendDownRef.current = true
+          setBackendDown(true)
+        }
+        return Promise.reject(error)
+      }
+    )
+    return () => axios.interceptors.response.eject(interceptor)
+  }, [])
+
   return (
     <AppContext.Provider value={{
       isAdmin,
@@ -85,6 +108,7 @@ export function AppProvider({ children }) {
       setPageGuardActive,
       darkMode,
       toggleDarkMode,
+      backendDown,
     }}>
       {children}
     </AppContext.Provider>
