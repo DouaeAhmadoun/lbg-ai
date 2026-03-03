@@ -417,8 +417,6 @@ def validate_shipment_data(data: pd.DataFrame, market: str) -> Dict:
             blocking_errors.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing city'})
         if not get_value('nombre', 'name'):
             blocking_errors.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing name'})
-        if not get_value('email'):
-            blocking_errors.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing email'})
 
         # --- Warnings ---
         if not get_value('telefono'):

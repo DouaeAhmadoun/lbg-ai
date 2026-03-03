@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Download, FileText, Image as ImageIcon } from 'lucide-react'
+import { useBlocker } from 'react-router-dom'
+import { Download, FileText, Image as ImageIcon, X } from 'lucide-react'
 import axios from 'axios'
 import API_URL from '@/config'
 axios.defaults.baseURL = API_URL
@@ -384,20 +385,73 @@ export default function PptTranslation() {
   // --- Derived ---
   const isOcrFree = settings.provider === 'ocr_free'
   const isDimmed = processing ? 'opacity-30 pointer-events-none' : ''
+  const hasData = slides.length > 0 || processing
+
+  // Block SPA navigation when data is loaded
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasData && currentLocation.pathname !== nextLocation.pathname
+  )
+
+  // Block browser refresh/close when data is loaded
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasData) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasData])
+
+  const clearAll = () => {
+    setFile(null)
+    setSlides([])
+    setProcessing(false)
+    setProgress(0)
+    setCurrentSlide(0)
+    setSlidesDetected(0)
+    setJobId(null)
+    setProgressMessage('')
+    setProgressWarning(null)
+    setFailedSlides(0)
+    setDetectedLang(null)
+    setError(null)
+    setSlideMethods([])
+    setTranslationCompleted(false)
+    setElapsed(0)
+    setIsRetryMode(false)
+    setFirstJobId(null)
+    setRangeFrom('')
+    setRangeTo('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-8 pb-28">
       <div className="max-w-5xl mx-auto px-4">
 
         {/* Header */}
-        <div className="mb-8 flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">PT</span>
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-xl">PT</span>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">PowerPoint Translation</h1>
+              <p className="text-gray-600">Professional automated translation service</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">PowerPoint Translation</h1>
-            <p className="text-gray-600">Professional automated translation service</p>
-          </div>
+          {hasData && !processing && (
+            <button
+              onClick={clearAll}
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+            >
+              <X size={14} />
+              <span>Clear</span>
+            </button>
+          )}
         </div>
 
         {/* Error */}
@@ -646,49 +700,6 @@ export default function PptTranslation() {
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex justify-center space-x-3 mb-6">
-          <button
-            onClick={handleTranslate}
-            disabled={!file || selectedCount === 0 || processing}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{processing ? 'Processing...' : isRetryMode ? 'Retry Failed Slides' : 'Start Translation'}</span>
-          </button>
-
-          {processing && jobId && (
-            <button
-              onClick={handleCancel}
-              className="flex items-center space-x-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all"
-            >
-              <span>✕ Cancel</span>
-            </button>
-          )}
-
-          {jobId && !processing && translationCompleted && (
-            <button
-              onClick={handleDownload}
-              className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all"
-            >
-              <Download size={18} />
-              <span>Download Result</span>
-            </button>
-          )}
-
-          {isRetryMode && firstJobId && jobId && !processing && translationCompleted && (
-            <button
-              onClick={handleMerge}
-              disabled={merging}
-              className="flex items-center space-x-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-all"
-            >
-              <span>{merging ? '⏳ Merging...' : '🔀 Merge & Download'}</span>
-            </button>
-          )}
-        </div>
 
         {/* Post-translation summary */}
         {jobId && !processing && progressMessage && (() => {
@@ -851,6 +862,109 @@ export default function PptTranslation() {
         )}
 
       </div>
+
+      {/* Sticky action bar */}
+      {(file || jobId) && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+
+            {/* Left: context summary */}
+            <div className="text-sm text-gray-600 flex items-center gap-3 min-w-0">
+              {processing ? (
+                <>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0" />
+                  <span className="font-medium text-gray-800 truncate">
+                    {slidesDetected > 0 ? `Slide ${currentSlide} / ${slidesDetected}` : 'Processing...'}
+                  </span>
+                  <span className="text-gray-400 flex-shrink-0">{formatElapsed(elapsed)}</span>
+                  <span className="font-semibold text-blue-600 flex-shrink-0">{Math.round(progress)}%</span>
+                </>
+              ) : translationCompleted ? (
+                <span className="font-medium text-green-700">✓ Translation complete</span>
+              ) : (
+                <>
+                  <span>{selectedCount} slide{selectedCount !== 1 ? 's' : ''} selected</span>
+                  {cost > 0 && <span className="text-blue-600 font-medium flex-shrink-0">~${cost.toFixed(2)}</span>}
+                  {cost === 0 && selectedCount > 0 && <span className="text-green-600 font-medium flex-shrink-0">Free</span>}
+                </>
+              )}
+            </div>
+
+            {/* Right: action buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {processing && jobId && (
+                <button
+                  onClick={handleCancel}
+                  className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-medium transition-all"
+                >
+                  ✕ Cancel
+                </button>
+              )}
+
+              {!processing && (
+                <button
+                  onClick={handleTranslate}
+                  disabled={!file || selectedCount === 0}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {isRetryMode ? 'Retry Failed Slides' : 'Start Translation'}
+                </button>
+              )}
+
+              {jobId && !processing && translationCompleted && (
+                <button
+                  onClick={handleDownload}
+                  className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium transition-all"
+                >
+                  <Download size={16} />
+                  Download
+                </button>
+              )}
+
+              {isRetryMode && firstJobId && jobId && !processing && translationCompleted && (
+                <button
+                  onClick={handleMerge}
+                  disabled={merging}
+                  className="flex items-center gap-1.5 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium transition-all"
+                >
+                  {merging ? '⏳ Merging...' : '🔀 Merge & Download'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation warning modal */}
+      {blocker.state === 'blocked' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Leave this page?</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              You have uploaded a file that will be lost if you navigate away. Are you sure you want to leave?
+            </p>
+            <div className="flex space-x-3 justify-end">
+              <button onClick={() => blocker.reset()} className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+                Stay on page
+              </button>
+              <button onClick={() => blocker.proceed()} className="px-4 py-2 text-sm rounded-lg bg-orange-600 text-white hover:bg-orange-700 font-medium">
+                Leave anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
