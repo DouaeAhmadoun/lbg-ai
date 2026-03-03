@@ -29,7 +29,7 @@ function AppContent() {
         </Routes>
       </main>
       <footer className="text-center py-5 text-xs text-gray-400 dark:text-gray-600 border-t border-gray-200 dark:border-gray-800">
-        Développé par{' '}
+        Developed by{' '}
         <a
           href="https://douaeahmadoun.com"
           target="_blank"

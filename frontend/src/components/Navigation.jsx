@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FileText, Table, History, Settings, Sun, Moon } from 'lucide-react'
 import { useApp } from '../contexts/AppContext'
+import lbgLogo from '../assets/logo.jpeg'
 
 export default function Navigation() {
   const location = useLocation()
@@ -28,9 +29,12 @@ export default function Navigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              LBG AI Automation Hub
-            </h1>
+            <div className="flex items-center space-x-3">
+              <img src={lbgLogo} alt="LBG" className="h-8 w-8 rounded-full object-cover" />
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                LBG AI Automation Hub
+              </h1>
+            </div>
 
             <div className="flex space-x-4">
               {navItems.map(({ path, label, icon: Icon }) => (
