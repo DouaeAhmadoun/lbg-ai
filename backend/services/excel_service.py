@@ -14,11 +14,11 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-# Use /data/templates in production (persistent volume on Railway),
+# Use DATA_DIR env var (set to /data on Railway) for persistent storage,
 # fall back to local backend/templates/ for local development
-_DATA_TEMPLATES = Path("/data/templates")
-_LOCAL_TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
-_DEFAULT_TEMPLATES_DIR = _DATA_TEMPLATES if _DATA_TEMPLATES.parent.exists() else _LOCAL_TEMPLATES
+import os as _os
+_data_dir = _os.getenv("DATA_DIR")
+_DEFAULT_TEMPLATES_DIR = Path(_data_dir) / "templates" if _data_dir else Path(__file__).resolve().parent.parent / "templates"
 
 # Column mapping configuration
 # Maps template columns → client data columns (with fallback)

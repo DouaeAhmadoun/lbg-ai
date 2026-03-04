@@ -29,12 +29,15 @@ export default function Navigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-3">
+            <a
+              href="https://lbg-ai.douaeahmadoun.com/"
+              className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+            >
               <img src={lbgLogo} alt="LBG" className="h-8 w-8 rounded-full object-cover" />
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                 LBG AI Automation Hub
               </h1>
-            </div>
+            </a>
 
             <div className="flex space-x-4">
               {navItems.map(({ path, label, icon: Icon }) => (
