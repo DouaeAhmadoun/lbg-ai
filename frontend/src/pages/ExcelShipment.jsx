@@ -131,6 +131,10 @@ export default function ExcelShipment() {
   const hasData = clientData !== null
   const { setPageGuardActive } = useApp()
 
+  useEffect(() => {
+    if (error) window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [error])
+
   useEffect(() => { document.title = 'Excel Shipment — LBG AI' }, [])
 
   // Cycle step messages while generating
