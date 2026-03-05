@@ -131,8 +131,6 @@ export default function PptTranslation() {
 
   // New state
   const [elapsed, setElapsed] = useState(0)
-  const [history, setHistory] = useState([])
-  const [showHistory, setShowHistory] = useState(false)
   const [rangeFrom, setRangeFrom] = useState('')
   const [rangeTo, setRangeTo] = useState('')
   const [isRetryMode, setIsRetryMode] = useState(false)
@@ -184,13 +182,6 @@ export default function PptTranslation() {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
     return () => clearInterval(t)
   }, [processing])
-
-  // Load history on mount
-  useEffect(() => {
-    axios.get('/api/ppt/history?limit=5')
-      .then(res => setHistory(res.data.jobs || []))
-      .catch(() => {})
-  }, [])
 
   // --- Model helpers ---
   const handleModelSelect = (key) => {
@@ -350,9 +341,6 @@ export default function PptTranslation() {
           setProgressMessage(lines.join('\n'))
 
           triggerDownload(`${API_URL}/api/ppt/download/${id}`)
-
-          // Refresh history
-          axios.get('/api/ppt/history?limit=5').then(res => setHistory(res.data.jobs || [])).catch(() => {})
 
         } else if (job.status === 'failed') {
           localStorage.removeItem('ppt_active_job')
@@ -870,53 +858,6 @@ export default function PptTranslation() {
           </details>
         )}
 
-        {/* J: Translation history */}
-        {history.length > 0 && (
-          <details open={showHistory} onToggle={e => setShowHistory(e.target.open)} className="mb-4">
-            <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 mb-2 select-none">
-              Recent translations ({history.length})
-            </summary>
-            <div className="mt-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    {['Date', 'File', 'Slides', 'Provider', 'Cost', ''].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {history.map(job => {
-                    const cost = job.settings_used?.total_cost
-                    const date = job.created_at ? new Date(job.created_at).toLocaleDateString() : '—'
-                    return (
-                      <tr key={job.id} className={job.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20' : ''}>
-                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{date}</td>
-                        <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-200 max-w-[140px] truncate" title={job.input_filename}>{job.input_filename}</td>
-                        <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-200">{job.slides_processed ?? '—'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{job.provider || '—'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-200">
-                          {cost !== undefined && cost !== null ? `$${Number(cost).toFixed(3)}` : '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          {job.status === 'completed' && (
-                            <button
-                              onClick={() => triggerDownload(`${API_URL}/api/ppt/download/${job.id}`)}
-                              className="text-xs text-blue-600 dark:text-primary-400 hover:text-blue-800 font-medium flex items-center space-x-1"
-                            >
-                              <Download size={12} /><span>Download</span>
-                            </button>
-                          )}
-                          {job.status === 'failed' && <span className="text-xs text-red-500">Failed</span>}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        )}
 
       </div>
 

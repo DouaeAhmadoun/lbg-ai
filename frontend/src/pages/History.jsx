@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Download, FileText, Table, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Download, FileText, Table, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import axios from 'axios'
 import API_URL from '@/config'
+import { useApp } from '@/contexts/AppContext'
 axios.defaults.baseURL = API_URL
 
 function Tooltip({ text, direction = 'up' }) {
@@ -20,6 +21,17 @@ const PAGE_SIZE = 10
 export default function History() {
   useEffect(() => { document.title = 'Historique — LBG AI' }, [])
 
+  const { isAdmin, login, sessionExpired } = useApp()
+  const [password, setPassword] = useState('')
+  const [loginError, setLoginError] = useState(null)
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    const result = await login(password)
+    if (!result.success) setLoginError(result.error)
+    else setLoginError(null)
+  }
+
   const [pptJobs, setPptJobs] = useState([])
   const [excelJobs, setExcelJobs] = useState([])
   const [activeTab, setActiveTab] = useState('ppt')
@@ -27,8 +39,8 @@ export default function History() {
   const [excelPage, setExcelPage] = useState(0)
 
   useEffect(() => {
-    loadHistory()
-  }, [])
+    if (isAdmin) loadHistory()
+  }, [isAdmin])
 
   const loadHistory = async () => {
     try {
@@ -67,6 +79,37 @@ export default function History() {
   const setPage = activeTab === 'ppt' ? setPptPage : setExcelPage
   const totalPages = Math.ceil(jobs.length / PAGE_SIZE)
   const pageJobs = jobs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-md mx-auto mt-20">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8">
+          <div className="flex justify-center mb-6">
+            <Lock className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-gray-100">Login to view history</h2>
+          {sessionExpired && (
+            <div className="mb-4 px-4 py-3 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 text-sm text-center">
+              Session expired — please log in again.
+            </div>
+          )}
+          <form onSubmit={handleLogin}>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter admin password"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded px-4 py-2 mb-4 dark:bg-gray-700 dark:text-gray-100"
+            />
+            {loginError && <p className="text-sm text-red-600 mb-4">{loginError}</p>}
+            <button type="submit" className="w-full bg-primary-600 text-white py-2 rounded hover:bg-primary-700">
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-5xl mx-auto">
