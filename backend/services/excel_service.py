@@ -434,6 +434,7 @@ def get_column_mapping_info(df: pd.DataFrame, market: str) -> dict:
 def validate_shipment_data(data: pd.DataFrame, market: str) -> Dict:
     """
     Validate shipment data for the selected market.
+    Uses fuzzy column matching so it works regardless of column language.
     Includes cross-market detection: flags rows that seem to belong to a different country.
     """
     blocking_errors = []
@@ -448,57 +449,86 @@ def validate_shipment_data(data: pd.DataFrame, market: str) -> Dict:
 
     market_labels = {'IT': 'Italy', 'FR': 'France', 'ES': 'Spain'}
 
+    # Pre-resolve actual client column names via fuzzy matching
+    mapping = COLUMN_MAPPINGS.get(market, {})
+    client_cols = list(data.columns)
+    resolved = {}
+    for template_col, source_cols in mapping.items():
+        resolved[_normalize(template_col)] = _fuzzy_find_column(source_cols, client_cols, template_col)
+
+    # Helper: resolve a field by normalized template name
+    def _col(template_key: str) -> Optional[str]:
+        return resolved.get(_normalize(template_key))
+
     for idx, row in data.iterrows():
         row_num = idx + 2
-        user_id = row.get('user_id', 'Unknown')
+        uid_col = _col('MEMBER_ID') or _col('MEMBER ID ')
+        user_id = row.get(uid_col, 'Unknown') if uid_col else 'Unknown'
 
-        def get_value(primary_col, fallback_col=None):
-            val = row.get(primary_col)
+        def get_resolved(template_key):
+            col = _col(template_key)
+            if not col:
+                return None
+            val = row.get(col)
             if pd.notna(val) and str(val).strip() not in ['', 'None', 'nan']:
                 return str(val).strip()
-            if fallback_col:
-                val = row.get(fallback_col)
-                if pd.notna(val) and str(val).strip() not in ['', 'None', 'nan']:
-                    return str(val).strip()
             return None
 
+        # Map template column names per market for validation
+        # Address
+        addr_keys = {'IT': 'INDIRIZZO', 'FR': 'ADRESSE', 'ES': 'DIRECCIÓN'}
+        # Postal
+        postal_keys = {'IT': 'CAP', 'FR': 'CP', 'ES': 'CODIGO POSTAL'}
+        # City
+        city_keys = {'IT': 'CITTÀ ', 'FR': 'VILLE', 'ES': 'CIUDAD'}
+        # First name
+        name_keys = {'IT': 'NOME', 'FR': 'PRENOM', 'ES': 'NOMBRE'}
+        # Last name
+        surname_keys = {'IT': 'COGNOME', 'FR': 'NOM', 'ES': 'APELLIDOS'}
+        # Phone
+        phone_keys = {'IT': 'TELEFONO', 'FR': 'TÉLEFONO', 'ES': 'TÉLEFONO'}
+        # Province
+        prov_keys = {'IT': 'PROVINCIA', 'FR': 'REGION', 'ES': 'PROVINCIA'}
+        # Email
+        email_keys = {'IT': 'EMAIL', 'FR': 'EMAIL ', 'ES': 'EMAIL '}
+
         # --- Blocking errors ---
-        if not get_value('direccion'):
+        if not get_resolved(addr_keys.get(market, 'INDIRIZZO')):
             blocking_errors.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing address'})
-        if not get_value('codigo_postal', 'postal_code'):
+        if not get_resolved(postal_keys.get(market, 'CAP')):
             blocking_errors.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing postal code'})
-        if not get_value('ciudad', 'city'):
+        if not get_resolved(city_keys.get(market, 'CIUDAD')):
             blocking_errors.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing city'})
-        if not get_value('nombre', 'name'):
+        if not get_resolved(name_keys.get(market, 'NOMBRE')):
             blocking_errors.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing name'})
 
         # --- Warnings ---
-        if not get_value('telefono'):
+        if not get_resolved(phone_keys.get(market, 'TELEFONO')):
             warnings.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing phone number'})
-        if not get_value('provincia'):
+        if not get_resolved(prov_keys.get(market, 'PROVINCIA')):
             warnings.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing province/region'})
-        if not get_value('apellido') and get_value('nombre', 'name'):
+        if not get_resolved(surname_keys.get(market, 'APELLIDOS')) and get_resolved(name_keys.get(market, 'NOMBRE')):
             warnings.append({'row': row_num, 'user_id': user_id, 'issue': 'Missing last name'})
 
         # --- Suspicious data ---
-        postal_code = get_value('codigo_postal', 'postal_code')
+        postal_code = get_resolved(postal_keys.get(market, 'CAP'))
         if postal_code:
             pattern = postal_patterns.get(market)
             if pattern and not re.match(pattern, postal_code):
                 try:
-                    float(postal_code)  # Valid number → will be cleaned, skip
+                    float(postal_code)
                 except ValueError:
                     validations.append({'row': row_num, 'user_id': user_id, 'issue': f'Invalid postal code format: "{postal_code}"'})
 
-        email = get_value('email')
+        email = get_resolved(email_keys.get(market, 'EMAIL'))
         if email and '@' not in email:
             validations.append({'row': row_num, 'user_id': user_id, 'issue': f'Invalid email format: "{email}"'})
 
-        phone = get_value('telefono')
+        phone = get_resolved(phone_keys.get(market, 'TELEFONO'))
         if phone and len(re.sub(r'\D', '', phone)) < 7:
             validations.append({'row': row_num, 'user_id': user_id, 'issue': f'Phone number too short: "{phone}"'})
 
-        address = get_value('direccion')
+        address = get_resolved(addr_keys.get(market, 'INDIRIZZO'))
         if address and len(address) < 5:
             validations.append({'row': row_num, 'user_id': user_id, 'issue': f'Address too short: "{address}"'})
 
