@@ -177,41 +177,45 @@ def _fuzzy_find_column(source_names: List[str], client_columns: List[str], templ
 def _classify_row_to_market(row) -> Optional[str]:
     """
     Attempt to classify a row to IT, FR, or ES based on available signals.
-    Used only for validation (cross-market detection), not for filtering.
+    Uses fuzzy column matching so it works regardless of column language.
     Returns None if classification is ambiguous.
     """
+    cols = list(row.index)
+
+    def _get_field(keywords):
+        """Get value from the first column that fuzzy-matches any keyword."""
+        col = _fuzzy_find_column(keywords, cols)
+        if col and pd.notna(row[col]):
+            val = str(row[col]).strip()
+            if val and val not in ('nan', 'None', 'NaN', ''):
+                return val
+        return None
+
     # 1. Province-based (highest confidence)
-    if 'provincia' in row.index and pd.notna(row['provincia']):
-        prov_raw = str(row['provincia']).strip()
-        if prov_raw and prov_raw not in ('nan', 'None', ''):
-            if re.match(r'^[A-Z]{2}$', prov_raw) and prov_raw in ITALIAN_PROVINCE_CODES:
-                return 'IT'
-            if _normalize(prov_raw) in SPANISH_PROVINCE_NAMES:
-                return 'ES'
+    prov_raw = _get_field(['provincia', 'region', 'province'])
+    if prov_raw:
+        if re.match(r'^[A-Z]{2}$', prov_raw) and prov_raw in ITALIAN_PROVINCE_CODES:
+            return 'IT'
+        if _normalize(prov_raw) in SPANISH_PROVINCE_NAMES:
+            return 'ES'
 
     # 2. City-based fallback for IT
-    for col in ('ciudad', 'city'):
-        if col in row.index and pd.notna(row[col]):
-            city_val = str(row[col]).strip()
-            if not city_val or city_val in ('nan', 'None', 'NaN'):
-                continue  # empty → try next column
-            city_norm = _normalize(city_val)
-            if city_norm in ITALIAN_CITIES:
-                return 'IT'
-            break  # non-empty city found, not Italian → stop
+    city_val = _get_field(['ciudad', 'city', 'citta', 'ville'])
+    if city_val:
+        if _normalize(city_val) in ITALIAN_CITIES:
+            return 'IT'
 
-    # 3. Postal code — try both column names, skip empty values
-    postal_code = None
-    for col in ('codigo_postal', 'postal_code'):
-        if col in row.index and pd.notna(row[col]):
-            val = row[col]
-            candidate = str(int(val)).zfill(5) if isinstance(val, (int, float)) else str(val).strip()
-            if not candidate or candidate in ('nan', 'None', 'NaN'):
-                continue  # empty → try next column
-            postal_code = candidate
-            break
+    # 3. Postal code
+    postal_raw = _get_field(['codigo_postal', 'postal_code', 'cap', 'cp', 'codigo postal'])
+    if not postal_raw:
+        return None
 
-    if not postal_code or not re.match(r'^\d{5}$', postal_code):
+    try:
+        postal_code = str(int(float(postal_raw))).zfill(5)
+    except (ValueError, OverflowError):
+        postal_code = postal_raw.strip()
+
+    if not re.match(r'^\d{5}$', postal_code):
         return None
 
     pc_int = int(postal_code)
