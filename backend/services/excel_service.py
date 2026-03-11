@@ -25,39 +25,39 @@ _DEFAULT_TEMPLATES_DIR = Path(_data_dir) / "templates" if _data_dir else Path(__
 # Format: 'TEMPLATE_COL': ['primary_column', 'fallback_column']
 COLUMN_MAPPINGS = {
     'IT': {
-        'MEMBER_ID': ['user_id'],
-        'NOME': ['nombre', 'name'],
-        'COGNOME': ['apellido', 'name'],
-        'INDIRIZZO': ['direccion'],
-        'DETTAGLI': ['complemento_direccion'],
-        'CAP': ['codigo_postal', 'postal_code'],
-        'CITTÀ ': ['ciudad', 'city'],
-        'PROVINCIA': ['provincia'],
-        'TELEFONO': ['telefono'],
+        'MEMBER_ID': ['user_id', 'member_id'],
+        'NOME': ['nome', 'nombre', 'name', 'prenom'],
+        'COGNOME': ['cognome', 'apellido', 'apellidos', 'name', 'nom'],
+        'INDIRIZZO': ['indirizzo', 'direccion', 'adresse'],
+        'DETTAGLI': ['dettagli', 'complemento', 'complemento_direccion', 'complement'],
+        'CAP': ['cap', 'codigo_postal', 'postal_code', 'cp', 'codigo postal'],
+        'CITTÀ ': ['citta', 'ciudad', 'city', 'ville'],
+        'PROVINCIA': ['provincia', 'region'],
+        'TELEFONO': ['telefono', 'numero di telefono', 'numero de telefono'],
         'EMAIL': ['email']
     },
     'FR': {
-        'MEMBER_ID': ['user_id'],
-        'PRENOM': ['nombre', 'name'],
-        'NOM': ['apellido', 'name'],
-        'ADRESSE': ['direccion'],
-        'COMPLEMENT ADRESSE': ['complemento_direccion'],
-        'CP': ['codigo_postal', 'postal_code'],
-        'VILLE': ['ciudad', 'city'],
-        'REGION': ['provincia'],
+        'MEMBER_ID': ['user_id', 'member_id'],
+        'PRENOM': ['prenom', 'nombre', 'name', 'nome'],
+        'NOM': ['nom', 'apellido', 'apellidos', 'name', 'cognome'],
+        'ADRESSE': ['adresse', 'direccion', 'indirizzo'],
+        'COMPLEMENT ADRESSE': ['complement adresse', 'complemento', 'complemento_direccion', 'dettagli'],
+        'CP': ['cp', 'codigo_postal', 'postal_code', 'cap', 'codigo postal'],
+        'VILLE': ['ville', 'ciudad', 'city', 'citta'],
+        'REGION': ['region', 'provincia'],
         'EMAIL ': ['email'],
-        'TÉLEFONO': ['telefono']
+        'TÉLEFONO': ['telefono', 'numero de telefono', 'numero di telefono']
     },
     'ES': {
-        'MEMBER ID ': ['user_id'],
-        'NOMBRE': ['nombre', 'name'],
-        'APELLIDOS': ['apellido', 'name'],
-        'DIRECCIÓN': ['direccion'],
-        'DETALLES': ['complemento_direccion'],
-        'CODIGO POSTAL': ['codigo_postal', 'postal_code'],
-        'CIUDAD': ['ciudad', 'city'],
-        'PROVINCIA': ['provincia'],
-        'TÉLEFONO': ['telefono'],
+        'MEMBER ID ': ['user_id', 'member_id'],
+        'NOMBRE': ['nombre', 'name', 'nome', 'prenom'],
+        'APELLIDOS': ['apellido', 'apellidos', 'name', 'cognome', 'nom'],
+        'DIRECCIÓN': ['direccion', 'adresse', 'indirizzo'],
+        'DETALLES': ['detalles', 'complemento', 'complemento_direccion', 'complement adresse', 'dettagli'],
+        'CODIGO POSTAL': ['codigo postal', 'codigo_postal', 'postal_code', 'cp', 'cap'],
+        'CIUDAD': ['ciudad', 'city', 'ville', 'citta'],
+        'PROVINCIA': ['provincia', 'region'],
+        'TÉLEFONO': ['telefono', 'numero de telefono', 'numero di telefono'],
         'EMAIL ': ['email']
     }
 }
@@ -132,6 +132,46 @@ def _normalize(text: str) -> str:
         c for c in unicodedata.normalize('NFD', text.lower().strip())
         if unicodedata.category(c) != 'Mn'
     )
+
+
+def _fuzzy_find_column(source_names: List[str], client_columns: List[str], template_col: str = None) -> Optional[str]:
+    """
+    Find the best matching client column for a list of expected source names.
+    Also tries matching against the template column name itself.
+    Priority: exact > startswith > contains
+    All comparisons are normalized (lowercase, no accents).
+    """
+    norm_map = {_normalize(str(c)): c for c in client_columns}
+
+    candidates = list(source_names)
+    if template_col:
+        candidates.append(template_col)
+
+    # 1. Exact match (normalized)
+    for candidate in candidates:
+        cn = _normalize(candidate)
+        if cn in norm_map:
+            return norm_map[cn]
+
+    # 2. Client column starts with candidate
+    for candidate in candidates:
+        cn = _normalize(candidate)
+        if len(cn) < 2:
+            continue
+        for norm_client, orig in norm_map.items():
+            if norm_client.startswith(cn):
+                return orig
+
+    # 3. Candidate contained in client column
+    for candidate in candidates:
+        cn = _normalize(candidate)
+        if len(cn) < 3:
+            continue
+        for norm_client, orig in norm_map.items():
+            if cn in norm_client:
+                return orig
+
+    return None
 
 
 def _classify_row_to_market(row) -> Optional[str]:
@@ -295,28 +335,37 @@ class ShipmentProcessor:
                 for cell in row_cells:
                     cell.value = None
 
+        # Pre-resolve fuzzy column mapping: template_col → actual client col
+        client_cols = list(data.columns)
+        resolved_mapping = {}
+        for template_col, source_cols in mapping.items():
+            col_idx = header_to_col.get(template_col.strip())
+            if col_idx is None:
+                continue
+            matched_client_col = _fuzzy_find_column(source_cols, client_cols, template_col)
+            if matched_client_col:
+                resolved_mapping[template_col] = (col_idx, matched_client_col)
+                print(f"  📎 {template_col} ← {matched_client_col}")
+            else:
+                print(f"  ⚠️ {template_col} ← no match found")
+
         print(f"📝 Writing {len(data)} rows to {market} template")
 
         for seq_idx, (_, row) in enumerate(data.iterrows()):
             excel_row = 2 + seq_idx
 
-            for template_col, source_cols in mapping.items():
-                col_idx = header_to_col.get(template_col.strip())
-                if col_idx is None:
-                    continue
-
-                value = ''
-                for source_col in source_cols:
-                    if source_col not in row:
-                        continue
-                    potential_value = row[source_col]
-                    if potential_value is None or pd.isna(potential_value):
-                        continue
+            for template_col, (col_idx, client_col) in resolved_mapping.items():
+                potential_value = row.get(client_col)
+                if potential_value is None or pd.isna(potential_value):
+                    value = ''
+                else:
                     str_value = str(potential_value).strip()
                     if str_value in ('', 'None', 'nan', 'NaN'):
-                        continue  # empty → try next fallback column
-                    value = str(potential_value).replace('.0', '') if isinstance(potential_value, (int, float)) else str_value
-                    break
+                        value = ''
+                    elif isinstance(potential_value, (int, float)):
+                        value = str(potential_value).replace('.0', '')
+                    else:
+                        value = str_value
 
                 worksheet.cell(row=excel_row, column=col_idx, value=value)
 
@@ -363,22 +412,20 @@ def get_column_mapping_info(df: pd.DataFrame, market: str) -> dict:
     """
     Returns which template columns have a matching source column in the client data,
     and which client columns are not mapped to any template column.
+    Uses fuzzy matching (normalized, startswith, contains).
     """
     mapping = COLUMN_MAPPINGS.get(market, {})
-    client_cols_lower = {col.lower() for col in df.columns}
-    all_source_cols_lower: set = set()
+    client_cols = list(df.columns)
+    matched_client_cols = set()
 
     mapped = []
     for template_col, source_cols in mapping.items():
-        all_source_cols_lower.update(sc.lower() for sc in source_cols)
-        found_col = None
-        for sc in source_cols:
-            if sc.lower() in client_cols_lower:
-                found_col = sc
-                break
+        found_col = _fuzzy_find_column(source_cols, client_cols, template_col)
+        if found_col:
+            matched_client_cols.add(found_col)
         mapped.append({'template': template_col, 'source': found_col, 'found': found_col is not None})
 
-    unmapped = [col for col in df.columns if col.lower() not in all_source_cols_lower]
+    unmapped = [col for col in client_cols if col not in matched_client_cols]
     coverage = sum(1 for m in mapped if m['found']) / len(mapped) if mapped else 0
 
     return {'mapped': mapped, 'unmapped_client_cols': unmapped, 'coverage': round(coverage, 2)}
