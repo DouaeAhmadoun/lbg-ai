@@ -30,10 +30,10 @@ COLUMN_MAPPINGS = {
         'COGNOME': ['cognome', 'apellido', 'apellidos', 'name', 'nom'],
         'INDIRIZZO': ['indirizzo', 'direccion', 'adresse'],
         'DETTAGLI': ['dettagli', 'complemento', 'complemento_direccion', 'complement'],
-        'CAP': ['cap', 'codigo_postal', 'postal_code', 'cp', 'codigo postal'],
+        'CAP': ['cap', 'codigo_postal', 'postal_code', 'cp', 'codigo postal', 'code postal'],
         'CITTÀ ': ['citta', 'ciudad', 'city', 'ville'],
         'PROVINCIA': ['provincia', 'region'],
-        'TELEFONO': ['telefono', 'numero di telefono', 'numero de telefono'],
+        'TELEFONO': ['telefono', 'telephone', 'numero di telefono', 'numero de telefono'],
         'EMAIL': ['email']
     },
     'FR': {
@@ -42,11 +42,11 @@ COLUMN_MAPPINGS = {
         'NOM': ['nom', 'apellido', 'apellidos', 'name', 'cognome'],
         'ADRESSE': ['adresse', 'direccion', 'indirizzo'],
         'COMPLEMENT ADRESSE': ['complement adresse', 'complemento', 'complemento_direccion', 'dettagli'],
-        'CP': ['cp', 'codigo_postal', 'postal_code', 'cap', 'codigo postal'],
+        'CP': ['cp', 'code postal', 'codigo_postal', 'postal_code', 'cap', 'codigo postal'],
         'VILLE': ['ville', 'ciudad', 'city', 'citta'],
         'REGION': ['region', 'provincia'],
         'EMAIL ': ['email'],
-        'TÉLEFONO': ['telefono', 'numero de telefono', 'numero di telefono']
+        'TÉLEFONO': ['telefono', 'telephone', 'numero de telefono', 'numero di telefono']
     },
     'ES': {
         'MEMBER ID ': ['user_id', 'member_id'],
@@ -54,10 +54,10 @@ COLUMN_MAPPINGS = {
         'APELLIDOS': ['apellido', 'apellidos', 'name', 'cognome', 'nom'],
         'DIRECCIÓN': ['direccion', 'adresse', 'indirizzo'],
         'DETALLES': ['detalles', 'complemento', 'complemento_direccion', 'complement adresse', 'dettagli'],
-        'CODIGO POSTAL': ['codigo postal', 'codigo_postal', 'postal_code', 'cp', 'cap'],
+        'CODIGO POSTAL': ['codigo postal', 'codigo_postal', 'postal_code', 'cp', 'cap', 'code postal'],
         'CIUDAD': ['ciudad', 'city', 'ville', 'citta'],
         'PROVINCIA': ['provincia', 'region'],
-        'TÉLEFONO': ['telefono', 'numero de telefono', 'numero di telefono'],
+        'TÉLEFONO': ['telefono', 'telephone', 'numero de telefono', 'numero di telefono'],
         'EMAIL ': ['email']
     }
 }
@@ -206,7 +206,7 @@ def _classify_row_to_market(row) -> Optional[str]:
             return 'IT'
 
     # 3. Postal code
-    postal_raw = _get_field(['codigo_postal', 'postal_code', 'cap', 'cp', 'codigo postal'])
+    postal_raw = _get_field(['codigo_postal', 'postal_code', 'cap', 'cp', 'codigo postal', 'code postal'])
     if not postal_raw:
         return None
 
